@@ -1,0 +1,171 @@
+---
+title: "Biol 3872 Lab3-Assignment"
+output: html_document
+date: "`r Sys.Date()`"
+author:
+student_id: ""
+editor_options: 
+  chunk_output_type: console
+---
+
+**BEFORE STARTING:**\
+1. Include your name (as shown in Brightspace) in the `author` section above as text (e.g., "Liam MacNeil").\
+2. Install and load the packages required to run your code chunks/
+
+Assignments will largely be evaluated based on your code chunk answers. If they are incomplete or formatted incorrectly (e.g., code chunks don't run), no marks will be awarded. I recommend experimenting with solving these answers in a separate script/markdown document and reporting your answers with minimal script.
+
+```{r}
+library(tidyverse)
+data("iris")
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+::: {style="background-color: #44AA99; padding: padding: 5px; border-radius: 2px;"} \
+## 1. Task 1
+
+A)  What species displays the longest petal lengths? Store the species name as a character called `longest`.
+B)  What species has the greatest variance in sepal width? Store the species name as a character called `variable`.
+
+Report your answer in the code chunks below.
+
+```{r Task 1}
+#A) 
+# YOUR CODE HERE
+
+#B)
+# YOUR CODE HERE
+
+```
+:::
+\
+
+::: {style="background-color: #44AA99; transparent; padding: 5px; border-radius: 2px;"}
+
+## 2. Task 2
+
+A)  Using `base` R, produce a `plot` of all variables excluding the `species` variable but color points by species identity. Save this plot as a .png called `base_plot.png` in your `Figures` folder. Specify figure dimensions as 12 x 12 cm with 300 DPI.
+
+```{r Task 2}
+#A)
+# YOUR CODE HERE
+
+```
+:::
+
+\
+
+::: {style="background-color: #44AA99; transparent; padding: 5px; border-radius: 2px;"}
+
+## 3. Task 3
+
+A)  Based on the grammar of graphics, produce a **blank plot (no data plotted)** named `blank` using the `iris` data set with species as the x axis and sepal widths as the y axis. Store this object as a `ggplot` object named `empty_plot`.
+
+```{r Task 3}
+#A)
+# YOUR CODE HERE
+```
+:::
+
+\
+
+::: {style="background-color: #44AA99; transparent; padding: 5px; border-radius: 2px;"}
+
+## 4. Task 4
+
+A)  Fix the code below so that it runs and plots successfully and store it as a plot object named `fixed_traits_plot`. This plot should have petal length as the x-axis, sepal length as y axis and point size should correspond to petal width. Each point should be colored by species name.
+
+```{r Task 4}
+# FIX AND IMPLEMENT CODE BELOW
+#ggplot(iris, aes(x = Petal.Length, y = Sepal.Lenth), color = "Species")+
+ # geom_line(size = Petal.Width)+
+  #theme_minimal()
+
+# A)
+# YOUR CODE HERE
+```
+:::
+
+\
+
+::: {style="background-color: #44AA99; transparent; padding: 5px; border-radius: 2px;"}
+
+## 5. Task 5
+
+A)  Fix and modify the code below and add a discretized `geom` (e.g., `hex`) with exactly 10 bins, with a `viridis` filled palette (check `?` for different `scale_fill_...` options), and facets for each species. Name and store it as a plot object as `fixed_traits_plot_discrete`. *Clue: Can you fill a hexagon with species names using a continuous palette?*
+```{r Task 5}
+# FIX AND IMPLEMENT CODE BELOW
+
+#A) 
+#ggplot(iris, aes(x = Sepal.Length, y = Sepal.Width, color = Species))+
+#  geom_line(alpha = 0.5, aes(as.factor(Petal.Length)))+
+#  theme(legend.position = "left")+
+#  scale_x_continuous(limits = seq(0,Inf,2))
+
+# YOUR CODE HERE
+
+```
+:::
+
+
+::: {style="background-color: #44AA99; transparent; padding: 5px; border-radius: 2px;"}
+
+## 6. Task 6
+
+A)  Using the hotkey to generate a pipe operator in the `tidyverse`, pivot the petal measurements in the `iris` dataset to a longer format and successfully generate a boxplot with these petal measurements as the y-axis and measurement type (e.g., length v. width) as the x axis.Use these unique color codes (`"forestgreen"`,`"skyblue"`,`"maroon"`) to **fill**- not color- each species. This should be generated in a single code chunk. Add the `minimal` theme with text size at 12. 
+
+Name and store it as a plot object as `petal_plot`.
+```{r Task 6}
+# YOUR CODE HERE
+
+#A)
+# YOUR CODE HERE
+
+```
+:::
+
+::: {style="background-color: #44AA99; transparent; padding: 5px; border-radius: 2px;"}
+
+## 7. Task 7
+
+A) Similar to `Task 6`, in a single code chunk, pivot the petal measurements in the `iris` dataset to a longer format. Generate a scatter plot comparing with different measurement types on the x axis and their values on the y axis. Add a jitter `geom` and give each species a unique `facet` with a free (unique) y-axis. Name and store it as a plot object as `facet_petal_plot`.
+
+B)  Reproduce this same plot named `facet_petal_plot_reorder` where the facets are reversed by the reordering the `species` factor.
+```{r Task 7}
+# YOUR CODE HERE
+
+#A)
+# YOUR CODE HERE
+
+#B)
+# YOUR CODE HERE
+```
+:::
+
+::: {style="background-color: #44AA99; transparent; padding: 5px; border-radius: 2px;"}
+
+## 8. Task 8
+
+A) Create a new column in the `iris` dataset with `base` R or `dplyr` called `petal_area` which compues petal area.
+
+B)  Create and store a ggplot object named `area_plot` comparing `petal_area` (x axis) to `Sepal.Length` (y axis) with points colored by species.
+
+```{r Task 8}
+#A)
+# YOUR CODE HERE
+#B)
+# YOUR CODE HERE
+```
+:::
+
+## 8. Task 8C
+
+C) Save the previous plot as a `ggplot` object in your Figures folder named `area_plot.png` and define dimensions as 12x12 cm with 300 DPI.
+
+```{r}
+#C)
+# YOUR CODE HERE
+```
+Be sure before submitting this assignment to clear your and environment and re-run your code to ensure it works then submit this `markdown` file to the relevant Brightspace submission box.
