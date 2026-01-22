@@ -1,0 +1,560 @@
+---
+title: 'Lab 3: Plotting & data exploration'
+subtitle: "January 22, 2025"
+author: "Liam MacNeil"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+  css: styles.css
+editor_options:
+  chunk_output_type: console
+---
+
+# Introduction
+
+This will be a simple overview of data wrangling and plotting functions in R. It will focus on `base` R scripts within R studio and use plotting tools from `base` R & `ggplot2`. The weekly assignment is a separate document.
+
+**TIP** To insert R code chunks, use *CMD + Option + I* (mac) / *Ctrl+Alt+I* (Windows/Linux)
+
+Load in libraries that contain dependencies needed for this week, for many functions relating to `ggplot` and "tidy" scripting.
+
+```{r message=FALSE, include=F}
+if (!require("knitr")) install.packages("knitr")
+```
+
+```{r packages}
+
+# This is an all-in-one library of plotting tools which supports ggplot
+if (!require("tidyverse"))
+   install.packages("tidyverse")
+# Color customization
+if (!require("RColorBrewer")) 
+   install.packages("RColorBrewer")
+
+
+# Organizing file structure (this sets working directory where script is located)
+setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
+```
+
+\
+If you set up a structure of weekly directories (e.g., Lab 3 folder containing: Scripts, Figures, Data) then the above line sets your working directory to save everything in "scripts", use "../" in each saving step to redirect objects/plots/data to the correct folder.
+
+We will begin with rudimentary `base` R functions for data exploration, description and plotting.
+
+Important steps: 1) Read data properly, 2) Preview data columns, rows, data types, missing information (e.g., NAs), 3) Visualize data to explore patterns and potential outliers.
+
+```{r}
+# We will begin with built-in data sets from the R community (of which there are many)
+data("iris")
+```
+
+\
+This is a famous data set from R.A. Fisher^1^ recording functional attributes for three plant species
+
+```{r}
+?iris
+```
+
+\
+
+```{r}
+# How many observations (i.e., rows)?
+nrow(iris)
+
+# What are the overall dimensions (rows x columns)?
+dim(iris)
+
+# View the whole data set (shortcut to clicking on 'iris' in Global Environment)
+view(iris)
+
+# Can we preview this data?
+head(iris)
+tail(iris)
+```
+
+\
+We can also index the data set to pull out specific information:
+
+```{r}
+# by column name
+iris$Sepal.Length
+iris$Species
+```
+
+\
+
+```{r, include=FALSE}
+
+#When knit, each of these are rather long
+
+# by column number
+iris[,1:2]
+# by row number
+iris[1:2,]
+```
+
+\
+
+Some convenience functions to inspect aspects of a data frame.
+
+```{r}
+names(iris)
+rownames(iris)
+
+#What is the structure of this *dataframe*
+str(iris)
+# Note that different columns are composed of different data types (numeric or factor)
+
+# What are the ordered levels to the factor column? Can we reorder things?
+levels(iris$Species)
+```
+
+::: {style="background-color: #44AA99; transparent; padding: 10px; border-radius: 2px;"}
+### Task 1
+
+A)  What are the exact measurements (Sepal.Length, Sepal.Width, Petal.Length, Petal.Width) of the first and last data entry? Store each answer as a vector named `first` and `last`.
+
+```{r}
+# YOUR CODE HERE
+
+```
+:::
+
+```{r}
+# How can we construct new dataframes?
+
+# What about basic data descriptions?
+summary(iris)
+```
+
+```{r}
+# The base R "plot" function will visualize the different relationships of these columns 
+plot(iris)
+
+# How can we modify plot specifics?
+
+# Plotting one variable?
+```
+
+What about coloring by data frame categories?
+
+```{r}
+# per species
+plot(iris$Sepal.Length, col = iris$Species)
+```
+
+::: {style="background-color: #44AA99; transparent; padding: 10px; border-radius: 2px;"}
+### Task 2
+
+A)  Investigate help (?) function for 'iris' and 'plot' to visualize the relationships for each species
+B)  Which species has (on average) the longest and widest petals? Store it as a `character` in your environment.
+
+```{r}
+# YOUR CODE HERE
+
+```
+:::
+
+## Introduction to plotting
+
+Effective visualizations are among the important tools for any scientist. They translate data patterns for your audience and help communicate your main messages.
+
+In programming lingo, plotting can be divided into:
+
+-   **low-level approaches**, such as the `base` plotting package in R, where every aspect of a graph (e.g. color, size, shape) must be specified. These approaches are laborious to make "pretty" and ready e.g., for publication. But this level of plot specification in low-level approaches allows for significant flexibility. Low-level plotting is also an excellent entry point to explore your data.
+
+-   **high-level approaches**, such as `ggplot2`, build-on low-level functions to make intelligent assumptions to facilitate "pretty" plotting. This accelerates the plotting detailing steps and while high-level packages are a great innovation that help save time and can produce production-quality graphics, low-level skills are ultimately more powerful and customizable.
+
+An example^2^:
+
+```{r fig.align="center", echo=FALSE, include=TRUE, out.width="75%"}
+knitr::include_graphics(path.expand("../Figures/Figure_1.png"))
+
+```
+
+This is a reasonably complex plot to produce outside of the base-level plotting package, where each point, line, shade, and colour has been customized- making automation a real challenge.
+
+Here's another^3^:
+
+```{r fig.align="center", echo=FALSE, include=TRUE, out.width="60%"}
+knitr::include_graphics(path.expand("../Figures/Figure_2.png"))
+
+```
+
+This plot is comparatively simple and was produced in `ggplot2`, where colors are assigned by some grouping factor along with other automation steps. It still requires some line-specific details, but it's generally faster to make.
+
+So, if low-level graphics can build final, custom visualizations, why learn anything else? Because final graphics are only one component of the analytical process useful to biologists. As mentioned, data exploration is a first step to think more critically about complex data sets. This figure^4^ illustrates these trade-offs nicely:
+
+```{r fig.align="center", echo=FALSE, include=TRUE, out.width="70%"}
+knitr::include_graphics(path.expand("../Figures/Figure_3.png"))
+
+```
+
+## `base` R
+
+The `base` package in R offers pre-loaded functions with every installation, including all the low-level plotting functions that underpin how R produces graphics. High-level graphics packages manipulate these functions (under the hood) to produce graphics that guess at what 'good' should look like. We have started with simple, `base` R examples. With more complex plotting tools in R, we can render graphics with a variety of color combinations, data types, and outputs, with a minimum number of commands
+
+**Note**: It is important to recognize that graphics created using programmatic tools in R are often not the end point for scientific figures. They are commonly exported to be modified and collaged together in something like Adobe Photoshop or Inkscape before submission. These can enhance figure quality and even be essential for publication-ready graphics. But at a certain point, manual customization defeats the purpose of programmatic tools.
+
+Let's take three plot types to get started:
+
+A.  **Histograms**\
+B.  **Boxplots**\
+C.  **Scatterplots**\
+
+### A. Histograms
+
+A histogram is a plot that shows the underlying frequency distribution (shape) of a continuous variable In R we use the `hist()` function, where you can us a "slice" of your data frame as the input. See your data wrangling cheat sheets for slicing and indexing tips (i.e., how to extract specific portions of your data).
+
+```{r}
+?hist
+```
+
+e.g., What are the distributions of all sepal lengths?
+
+```{r}
+hist(iris$Sepal.Length)
+```
+
+Let's make this better by changing the axis labels (which take the sliced column name by default) and adding some color:
+
+```{r}
+# Histogram with colored bars and better labels
+hist(iris$Sepal.Length, col = "maroon", breaks = 30, xlab="Sepal Length (cm)", main = "Iris data")
+```
+
+**These code chunks can be hard to read.** Split the lines for readability.
+
+```{r}
+# Note how sepal lengths are extracted for the virginica species only, using the same format as above.
+hist(iris$Sepal.Length[iris$Species == "virginica"], 
+     col = "maroon", 
+     breaks = 30, 
+     xlab="Sepal Length (cm)", 
+     main = "Iris virginica data",
+     xlim = c(4, 9))
+
+```
+
+::: {style="background-color: #44AA99; transparent; padding: 10px; border-radius: 2px;"}
+### Task 3
+
+A)  Visually (i.e., by inspecting the histogram), what type of distribution appears to describe the sepal width across the whole data set? What is the shape of the distribution for each species?
+:::
+
+### B. Boxplots
+
+A boxplot (box and whisker plot) displays the five-number summary of a data set. The numbers are a summary which include the minimum, first quartile, median, third quartile, and maximum. In a boxplot, we draw a box from the first quartile to the third quartile. In `base` R, the function to make boxplots is `boxplot()`:
+
+```{r}
+boxplot(iris, 
+        ylab = "Centimeters", 
+        xlab = "Variable")
+```
+
+Here we can see that data summary by column, including points that are 1.5 \* greater than the interquartile range (i.e., the box).
+
+We often inspect parts of our data for exploration and `base` R has several convienance functions for subsetting data, including `subset`:
+
+```{r}
+# We will create a new object based on this subset
+
+iris_subset <- subset(iris, 
+                      Species == "setosa" | 
+                        Species == "versicolor")
+```
+
+```{r}
+# plot it where the petal length is a function (tilde ~) of another column
+boxplot(iris_subset$Petal.Length ~ iris_subset$Species)
+```
+
+Notice how *virgincia* still appears? That's because the original factor encoded in the `iris` data set is set to three levels (one per species), and that information is kept even while the information (rows) for *virgincia* has been subset.
+
+Here is an incredibly *hacky* way to do some the same thing without the `subset` function.
+
+```{r}
+boxplot(iris$Petal.Length[iris$Species == "setosa" | iris$Species == "versicolor"]~ 
+          iris$Species[iris$Species == "setosa" | iris$Species == "versicolor"])
+```
+
+\
+Don't do this. But it shows how there are multiple ways to get at the same result.
+
+### C. Scatterplots
+
+A scatterplot is one of the most common forms of displaying data, specifically for two numeric variables. Each columns specified gets plotted as a point whose x-y coordinates relates to its values for the two variables. To make a scatter plot, use the built-in function `plot()`. We already did this above, so let's jump to some customization features:
+
+```{r}
+# x-y are implicit here in the ordering (x is independent variable and comes first, y is dependent and second)
+
+# Underlying scatterplot
+plot(iris$Petal.Length, 
+     iris$Sepal.Length,
+    xlab="Petal length (cm)", 
+    ylab="Sepal length (cm)")
+
+# Add group points by color
+points(iris$Petal.Length[iris$Species == 'versicolor'],
+       iris$Sepal.Length[iris$Species == 'versicolor'],
+       col="forestgreen", pch= 16)
+
+# Add red points
+points(iris$Petal.Length[iris$Species == 'setosa'],
+       iris$Sepal.Length[iris$Species == 'setosa'],
+       col="skyblue", pch= 16)
+
+# Add blue points
+points(iris$Petal.Length[iris$Species == 'virginica'],
+       iris$Sepal.Length[iris$Species == 'virginica'],
+       col="maroon", pch= 16)
+
+# Add legend
+legend(1,7.5, 
+       legend=c('versicolor','setosa','virginica'), 
+       col=c("forestgreen","skyblue","maroon"), 
+       pch=16,
+       cex = 1)
+```
+
+To grasp the flexibility that underpin the options of these initial plots, always check `?` functions.
+
+## `ggplot2`
+
+`ggplot2` is a plotting package that makes it simple to create complex plots from a data frame. It provides a more programmatic interface for specifying what variables to plot, how they are displayed, and general visual properties. Therefore, we only need minimal changes if the underlying data change or if we decide to change from a bar plot to a scatterplot. This helps in creating high quality plots with minimal amounts of adjustments and tweaking. `ggplot` is a component of the bigger `tidyverse`, so we have already loaded the library above.
+
+Check out and apply (throughout the term) information in the Brightspace cheatsheets for `dplyr`, `ggplot`, and `tidyr`.
+
+### Why the name?
+
+The `gg` references "grammar of graphics", which was an idea that **Hadley Wickham** helped drive forward in R programming- although it had earlier origins- through the `tidyverse`. The grammar in this case defines fundamental rules for generating graphics layer-by-layer, and which allows for significant streamlining (i.e., those "intelligent assumptions" mentioned above) during graphic layering. These common rules govern the graphical representation of the underlying **data** through its **scale**, **coordinate system**, **aesthetics** and its **annotations**.
+
+To be precise, the layered grammar defines the components of a plot as:\
+• a default data set and set of mappings from variables to aesthetics,\
+• one or more layers, with each layer having one geometric object, one statistical transformation, one position adjustment, and optionally, one data set and set of aesthetic mappings,\
+• one scale for each aesthetic mapping used,\
+• a coordinate system,\
+• the facet specification.\
+
+We will encounter each of these rules in different topics throughout the semester.
+
+### `ggplot2` basics
+
+`ggplot2` plotting functions prefer 'long' formats, i.e., a column for every dimension, and a row for every observation. This can require some data wrangling (again, see cheatsheet) but it then allows building graphics by adding and chaining together new elements in a fairly customizable way with some automating steps.
+
+Here is a basic `ggplot2` template (the grammar!):
+
+`ggplot(data = <DATA>, mapping = aes(<MAPPINGS>)) +  <GEOM_FUNCTION>() + <FACET_GRID>()`
+
+where:
+
+`ggplot()`: start an object and specify the data\
+
+`aes()`: specifies the "aesthetic" elements; a legend is automatically created\
+
+`geom_point()`: specifies the type of plot we want (e.g. `geom_point` = scatter plot); a "type" is called a `geom`\
+
+`facet_grid()`: specifies the "faceting" or panel layout\
+
+There are also options for summary statistics, scales, colors, and annotations, among others. At a minimum, the template above shows that you must specify the data, some aesthetics, and a `geom`. Faceting is useful when you want to create the same figure using subsets of your data. Here is an example:
+
+```{r}
+ggplot(data = iris, aes(x = Petal.Length, y = Sepal.Length, color = Species))+
+  geom_point()
+
+# You can see the legend is automatically added, that is because we specified the color grouping by species in the aesthetic
+```
+
+`geom_point` summons the data, while if we only specified the ggplot argument it would generate a blank plot
+
+## Geoms
+
+`geoms` in `ggplot` refers to geometric (points, lines, bars) objects in a plot. There are a menagerie of `geoms` (See the cheatsheet!) and they are added to a `ggplot` object using the `+` operator.
+
+Here are some examples:
+
+```{r}
+ggplot(data = iris, aes(x = Petal.Length, y = Sepal.Length, color = Species))+
+  geom_point(alpha = 0.5, size = 3) + 
+  theme_bw(12) +
+  labs(x = "Petal length (cm)", y = "Sepal length (cm)")+
+  ggtitle("Iris species")+
+  # x axis xustomization with labels specified by sequence
+  scale_x_continuous(breaks = seq(0,8,1))
+```
+
+Note that the `geom` argument can also take an aesthetic, if you want unique color scales for each `geom`.\
+Also note that the legend inherits the `alpha` (transparency) argument we include here. Consider how to adjust this in the legend.
+
+```{r}
+ggplot(data = iris, aes(x = Petal.Length, y = Sepal.Length))+
+  geom_point(alpha = 0.5, size = 3, aes(color = Species)) + 
+  theme_bw(12) +
+  labs(x = "Petal length (cm)", y = "Sepal length (cm)")+
+  ggtitle("Iris species")+
+  # x axis xustomization with labels specified by sequence
+  scale_x_continuous(breaks = seq(0,8,1))+
+  guides(color = guide_legend(override.aes = list(alpha = 1)))
+```
+
+```{r}
+ggplot(data = iris, aes(x = Petal.Length, y = Sepal.Width, fill = Species))+
+  geom_violin() + 
+  theme_bw(12) +
+  labs(x = "Petal length (cm)", y = "Sepal length (cm)")+
+  # x axis xustomization with labels specified by sequence
+  scale_x_continuous(breaks = seq(0,8,1))
+```
+
+### Trend lines
+
+To add a smooth trend line use `geom_smooth()`. This will not only add a "smoothed" version of your data, but it will also add confidence intervals around it.
+
+```{r}
+ggplot(data = iris, aes(x = Petal.Length, y = Petal.Width, color = Species))+
+  geom_point(aes(size = Sepal.Length)) + 
+  geom_smooth(method = "lm")+
+  theme_bw(12) +
+  labs(x = "Petal length (cm)", y = "Petal width (cm)")+
+  # x axis xustomization with labels specified by sequence
+  scale_x_continuous(breaks = seq(0,8,1))
+```
+
+::: {style="background-color: #44AA99; transparent; padding: 10px; border-radius: 2px;"}
+### Task 4
+
+A)  Recreate a `ggplot` comparing sepal lengths and widths. Use any `geom` you think is appropriate (try a few).
+B)  Modify both the x and y axes to show `breaks` every 0.5 cm.
+C)  Create a new `iris` object (e.g., `iris_task4`) where the `Species` factor column is reversed and recreate this plot
+
+```{r}
+# YOUR CODE HERE
+
+```
+:::
+
+### Jitter
+
+We have looked at boxplots in `base` R, `ggplot` contains a `jitter` option to reveal the underlying distribtion that is summarized by a boxplot. In combination, it can be useful to view raw and summarized data.
+
+```{r}
+ggplot(data = iris, aes(x = Species, y = Petal.Length, color = Species))+
+  geom_boxplot() + 
+  geom_jitter(alpha = 0.5)+
+  theme_bw(12) +
+  labs(x = "Species", y = "Petal width (cm)")+
+  theme(legend.position = "none")
+```
+
+### Faceting
+
+All the `ggplot` figures we have created have focused on customizing one panel with different group colors, lines, points, etc. We can also partition plots by some group by facets, these split one plot into multiple. Here we will use the `facet_wrap()` (check help for `facet_wrap`) function to separate out species:
+
+```{r}
+ggplot(data = iris, aes(x = Petal.Length, y = Petal.Width, color = Species))+
+  geom_point() + 
+  geom_smooth(method = "lm")+
+  theme_bw(12) +
+  labs(x = "Petal length (cm)", y = "Petal width (cm)")+
+  facet_wrap(~Species)+
+  # x axis customization with labels specified by sequence
+  scale_x_continuous(breaks = seq(0,8,1))
+```
+
+These examples visualize the raw data, point for point. We can often benefit from summarizing data and then visualizing. Discretizing is one way to do this (i.e., summarzing data across some interval of space or time) and we will return to a broader set of techniques in *Lab 6-8*. One simple way to get at this is with `geom_hex`:
+
+```{r}
+ggplot(data = iris, aes(x = Petal.Length, y = Sepal.Length))+
+  geom_hex(bins = 10) + 
+  theme_bw(12) +
+  labs(x = "Petal length (cm)", y = "Sepal length (cm)")+
+  ggtitle("Iris species")+
+  # x axis xustomization with labels specified by sequence
+  scale_x_continuous(breaks = seq(0,8,1))+
+  guides(color = guide_legend(override.aes = list(alpha = 1)))
+```
+
+To this point, we have let `ggplot` choose our color schemes. Many alternatives exist and they're often better in how they represent the underlying data and can be customized.
+
+```{r}
+RColorBrewer::display.brewer.all()
+```
+
+### Saving `base` plots and `ggplot` objects
+
+This is crucial to record your work. It is also important because it is a primary way to control plot dimensions, resolution, and output format. All of these will be essential to produce figures for a journal with strict formats. Note the differences in style and syntax between `base` and `ggplot`, however they both require information on sizing (with units), resolution, and an **output path**. As mentioned at the beginning, we have set our working directory (check `getwd`) such that we can save files in our weekly folder. Saving them to *Figures* is as simple as backing out of our scripts folder and directing to another folder (`"../foldername/filename.format`).
+
+Using `base`, there are multiple figure formats to save including `jpeg()`, `png()`, and `pdf()`. The sizing and spacing of each plot can be customized with the `par` argument, giving lots of flexibility in customizing to your needs.
+
+```{r}
+?par()
+```
+
+A `pdf()` can generally produce higher quality figure formats relying on vector graphics. We will also encounter `raster` formats for spatial image with pixels later in the term. However, nowadays, a fully scaleable vector graphic (`svg()`) provide excellent figures that don't pixelate when you zoom in. This feature is highly desirable when producing scientific figures, but you can run into figure size issues.
+
+```{r}
+
+# Using base R
+par(mfrow= c(1,1))
+png("../Figures/Example-baseR.pdf", width = 12, height = 12, units = "cm", res = 600)
+plot(iris, col = iris$Species)
+dev.off()
+
+# Using a ggplot 
+p <- ggplot(data = iris, aes(x = Petal.Length, y = Petal.Width, color = Species))+
+  geom_point(size = 3, alpha = 0.5) + 
+  geom_smooth(method = "lm")+
+  theme_bw(12) +
+  labs(x = "Petal length (cm)", y = "Petal width (cm)")+
+  # x axis customization with labels specified by sequence
+  scale_x_continuous(breaks = seq(0,8,1))+
+  scale_color_brewer(palette = "Accent")+
+  theme(legend.position = "inside",
+    legend.position.inside = c(0.15, 0.75))
+
+ggsave("../Figures/Example-ggplot.png", width = 12, height = 12, units = "cm", dpi = 300)
+```
+
+### Final examples
+
+We will finish by combining some data wrangling with plotting. This shows how data transformation steps can be chained together with plotting functions. Remember that in the `tidyverse`, these operate primarily on **dataframes**. We are starting here for simplicity, but please recognize that there is a world of analysis and plotting possibilities with other data types.
+
+To chain our wrangling steps with plotting, the `tidyverse` leans on pipe operators (`%>%`). Here is an example:
+
+```{r}
+iris %>% 
+  # This transforms our simple data set to a longer format
+  pivot_longer(cols = !Species,
+               names_to = "Variable",
+               values_to = "Measurement") %>% 
+  # With the data set defined (and modified) above, ggplot inherits the data automatically, so we go straight to the aestetic
+  ggplot(aes(x = Variable, y = Measurement, color = Species)) +
+  geom_jitter(alpha = 0.5)+
+  geom_boxplot()+
+  theme_minimal(12)+
+  labs(y = "Size (cm)")
+```
+
+::: {style="background-color: #44AA99; transparent; padding: 10px; border-radius: 2px;"}
+### Task 5
+
+What about creating a new columns on the road to plotting? The convenience function in `dplyr` in `mutate`.
+
+```{r}
+# YOUR CODE HERE
+```
+:::
+
+Next week we will dive into refining visualizations with better color palettes and enhanced customization. I recommend that you check out this paper^5^ and the `oce` package^6^, which was developed and is maintained (actively!) by Dr. Dan Kelly (Dalhousie Oceanography). Remember, proficiency is gained by consistent practice!
+
+The weekly assignment is within the github repo (**Lab_3_assignment.Rmd**), please submit a completed markdown document to the appropriate Brightspace dropbox.
+
+### References
+
+1.  Fisher, R. A. The Use of Multiple Measurements in Taxonomic Problems. Annals of Human Genetics (1936).
+2.  MacNeil, M. A. et al. Recovery potential of the world’s coral reef fishes. Nature 520, 341–344 (2015).
+3.  Froese, R. et al. Systemic failure of European fisheries management. Science, 826–828 (2025).
+4.  Anderson, S. Trade offs working in base R vs. ggplot. Simon Fraser University, (2021).
+5.  Thyng, K., et al. True Colors of Oceanography: Guidelines for Effective and Accurate Colormap Selection. Oceanography 29, 9–13 (2016).
+6.  <https://dankelley.github.io/oce/>
