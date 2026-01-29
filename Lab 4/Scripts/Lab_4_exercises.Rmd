@@ -1,0 +1,663 @@
+---
+title: 'Lab 4: Theory of data visualization'
+subtitle: "January 29, 2025"
+author: "Liam MacNeil and Sophie Tattrie"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+  css: styles.css
+editor_options:
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      fig.align   = 'center')
+```
+
+## Learning Objectives
+
+After completing this lab, you will:
+
+1.  Gain an understanding of Tufte's rules of visualization excellence
+
+2.  Have some of the tools to implement these yourselves
+
+Before, we loaded packages one-by-one. This works, but it's inefficient. We recommend learning to streamline this step. Here is one way.
+
+```{r, message = FALSE}
+packages <- c("tidyverse", "knitr", "patchwork", "HistData",
+              "scales", "RColorBrewer", "viridis","oce", "datasets", "gapminder", "patchwork", "datasauRus")
+
+# Install packages not yet installed
+installed_packages <- packages %in% rownames(installed.packages())
+if (any(installed_packages == FALSE)) {
+  install.packages(packages[!installed_packages])
+}
+
+# Packages loading
+invisible(lapply(packages, library, character.only = TRUE))
+
+# Organizing file structure (this sets working directory where script is located)
+# setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
+```
+
+At their best, graphics combine multiple streams or sources of information and tell a story. Many datasets exist to experiment with visualization tools. These tools don't apply just to classically "scientific" topics. Here is an epic map, drawn in 1869 by French engineer **Charles Joseph Minard** showing Napoleon Bonaparte's disastrous invasion of Russia in 1812, three years before the Battle of Waterloo. The Great scientist, statistician, and artist **Edward Tufte** has called this figure "probably the best statistical graphic ever drawn"^1^.
+
+```{r echo=FALSE, fig.align="center", fig.height=10, include=TRUE, out.height="40%", out.width="100%"}
+knitr::include_graphics(path.expand("../Figures/Figure_1.png"))
+```
+
+Let's recreate it. This loads the requisite data. This loads the requisite data.
+
+```{r}
+data("Minard.troops")
+data("Minard.cities")
+data("Minard.temp")
+```
+
+Let's plot the troops path, there and back again.
+
+```{r echo=TRUE}
+troops_p <- ggplot(Minard.troops, aes(long, lat)) +
+  geom_path(aes(size = survivors, color = direction,
+                group = group))
+
+```
+
+\
+Combine the path travelled with the annotations of cities based on their position (longitude and latitude). We will return to the specifics of positional (spatial) data later in the term.
+
+```{r}
+path_cities <- troops_p +
+  geom_text(data = Minard.cities, aes(label = city), size = 2.5)
+path_cities
+```
+
+\
+Now, polish the annotations of city positions along the *Grand Armée* path of travel.
+
+```{r}
+polished_p <- path_cities +
+  scale_size(
+             breaks = c(1, 2, 3) * 10^5,
+             labels = comma(c(1, 2, 3) * 10^5)) +
+  scale_color_manual(values = c("skyblue","red"))+
+  theme_minimal(10)+
+  labs(x = "Longitude", y = "Latitude")
+polished_p
+```
+
+We can combine these movement plots with some relevant climate data- of which we only have temperatures from the return journey..
+
+```{r}
+temp_p <- ggplot(data = Minard.temp, aes(x = long, y = temp, color = temp))+
+  geom_line(size = 4)  + 
+  theme_minimal(10)+
+  geom_label(aes(label = date),
+             size = 2.5, color = "black")+
+  labs(x = "Longitude", y = "Temperature")+
+  # This includes an excellent color palettes incorporated by Dr. Dan Kelly.
+  scale_color_gradientn(colors = (oce.colorsTemperature(20)),
+                        name = "Temperature")
+temp_p
+```
+
+Now we can combine these in a way to tell story like Minard was able to do. A nice relatively new package called `patchwork` can help us string together `ggplot`s in an organized way.
+
+```{r}
+Napoleons_retreat <- polished_p + 
+  temp_p + 
+  plot_layout(ncol = 1, 
+              axis_titles = "collect_x")
+```
+
+This is not as elegant as Minard's depiction, but it was **significantly** easier to produce. Such is the power of programmatic tools. This is a small example as an entry point into broader principles of visualization that we will cover today. These are inspired by Edward Tufte.
+
+The Rules:
+
+1.  Show Your Data
+2.  Use Graphics
+3.  Avoid Chartjunk
+4.  Utilize Data-ink
+5.  Use Labels
+6.  Utilize Micro/Macro
+7.  Separate Layers
+8.  Use Multiples
+9.  Utilize Color
+10. Understand Narrative
+
+## 1. Show your data
+
+Let's take a look at a relationship in the cars dataset:
+
+```{r}
+mtcars2 <- mtcars 
+mtcars2$am <- factor(mtcars2$am, labels = c('automatic', 'manual'))
+
+ggplot(mtcars2, aes(hp, mpg, color = am)) +
+  geom_smooth() +
+  theme(legend.position = 'bottom') +
+  labs (
+    x = "Horsepower",
+    y = "Miles per gallon",
+    color = "Transmission type"
+  )
+
+```
+
+When we add the data ... a classic example of over fitting due to the high and low points on either side of the gap in data, by not showing the data it might lead us to vastly overestimate what's going on here.
+
+```{r}
+
+ggplot(mtcars2, aes(hp, mpg, color = am)) +  geom_point() + geom_smooth() +
+  theme(legend.position = 'bottom') + 
+   labs (
+    x = "Horsepower",
+    y = "Miles per gallon",
+    color = "Transmission type"
+  )
+
+```
+
+```{r}
+ggplot(mtcars2, aes(hp, mpg, color = am)) +
+  geom_point() + theme(legend.position = 'bottom') + 
+   labs (
+    x = "Horsepower",
+    y = "Miles per gallon",
+    color = "Transmission type"
+  )
+```
+
+```{r}
+
+ggplot(mtcars2, aes(hp, mpg, color = am)) +  
+geom_point() + stat_smooth(method = "gam", formula = y ~ s(x), size = 1) + 
+theme(legend.position = 'bottom') + 
+    labs (
+    x = "Horsepower",
+    y = "Miles per gallon",
+    color = "Transmission type"
+  )
+
+```
+
+Let's look at another example from the datasauRus^1^ code :
+
+```{r}
+
+summary_stats <- datasaurus_dozen %>%
+  group_by(dataset) %>%
+  summarize(
+    mean_x    = round(mean(x), 2),
+    mean_y    = round(mean(y), 2),
+    sd_x      = round(sd(x), 2),
+    sd_y      = round(sd(y), 2),
+    cor_xy    = round(cor(x, y), 2)
+  )
+
+print(summary_stats)
+
+```
+
+```{r}
+selected_datasets <- datasaurus_dozen %>%
+  filter(dataset %in% c("dino", "circle", "x_shape", "star"))
+
+p_no_data <- ggplot(selected_datasets, aes(x = x, y = y)) +
+  geom_smooth(method = "lm", se = TRUE, color = "red") +
+  facet_wrap(~dataset, ncol = 2) +
+  theme_minimal()
+p_no_data
+```
+
+Now with the data overlaid
+
+```{r}
+p_with_data <- ggplot(selected_datasets, aes(x = x, y = y)) +
+  geom_point(alpha = 0.7, color = "steelblue") +
+  geom_smooth(method = "lm", se = TRUE, color = "red") +
+  facet_wrap(~dataset, ncol = 2) +
+  theme_minimal()
+
+p_with_data
+```
+
+## 2. Use Graphics
+
+This is a great example of graphics use from MacNeil et al. (2015)^2^. By this we mean information is sometimes better captured in images (like silhouettes) than text. Figuring when and where is the right time to use them is the tough part.
+
+```{r echo=FALSE, fig.align="center", include=TRUE, fig.height=10, out.width="100%", out.height="40%"}
+knitr::include_graphics(path.expand("../Figures/reef_fish.png"))
+```
+
+## 3. Avoid Chartjunk
+
+Chartjunk are elements not necessary to understand the information or that could distract.
+
+At best bad visualizations don't convey what you mean to, at worst they purposefully obscure or intentionally mislead.
+
+There's some comically bad visualizations out there, let's take a look at a few.
+
+```{r echo=FALSE, fig.align="center", include=TRUE, fig.height=10, out.width="100%", out.height="40%"}
+knitr::include_graphics(path.expand("../Figures/books.jpg"))
+```
+
+```{r echo=FALSE, fig.align="center", include=TRUE, fig.height=10, out.width="100%", out.height="40%"}
+knitr::include_graphics(path.expand("../Figures/gun_deaths.jpg"))
+```
+
+The following is a graphic from David Spiegelhalter's book **The Art of Statistics^3^**, he has several examples of terrible and misleading graphical representations of statistics. It's a great read!
+
+This one causes the chunks in front to appear larger than those in the back obscuring the takeaway message. As a rule, stay away from 3D pie!
+
+```{r echo=FALSE, fig.align="center", include=TRUE, fig.height=10, out.width="100%", out.height="40%"}
+knitr::include_graphics(path.expand("../Figures/3D_pie.png"))
+```
+
+## 4. Utilize data-ink
+
+Key message here is to convey information as clearly as possible, another way to think of this point is not to over complicate things.
+
+Here's an ink heavy plot:
+
+```{r}
+#ink heavy 
+ggplot(mtcars, aes(x = wt, y = mpg)) +
+  geom_point(shape = 19, size = 3, color = "red") +
+  theme(
+    # Heavy gridlines
+    panel.grid.major = element_line(color = "gray50", linewidth = 1),
+    panel.grid.minor = element_line(color = "gray70", linewidth = 0.5),
+    # Gray background
+    panel.background = element_rect(fill = "gray90"),
+    # Boxed border
+    panel.border = element_rect(color = "black", fill = NA, linewidth = 2),
+    # Thick axis lines
+    axis.line = element_line(color = "black", linewidth = 1)
+  ) +
+  xlab("Weight per 1000 lbs") +
+  ylab("Miles per gallon")
+```
+
+Most of the above really isn't necessary, here's an easy to ready, Ink lite version:
+
+```{r}
+ggplot(mtcars, aes(x = wt, y = mpg)) +
+  geom_point(shape = 1, size = 2) +
+  theme_classic() +
+  theme(
+    panel.grid = element_blank(),
+    axis.ticks = element_blank()
+  ) +
+  labs(
+    x = "Weight (1000 lbs)",
+    y = "Miles per gallon"
+  )
+```
+
+## EXERCISE
+
+Clean up the following code to produce a cleaner looking figure.
+
+```{r}
+
+ggplot(iris, aes(x = Sepal.Length, y = Petal.Length, color = Species)) +
+  geom_point(size = 4, stroke = 2) +
+  theme(
+    panel.grid.major = element_line(color = "black", linewidth = 1.2),
+    panel.grid.minor = element_line(color = "gray40", linewidth = 0.8),
+    panel.background = element_rect(fill = "gray80"),
+    plot.background = element_rect(fill = "gray70"),
+    panel.border = element_rect(color = "black", fill = NA, linewidth = 3),
+    axis.title = element_text(face = "bold", size = 14),
+    axis.text = element_text(face = "bold", size = 12, color = "black"),
+    legend.background = element_rect(fill = "gray60", color = "black", linewidth = 1),
+    legend.title = element_text(face = "bold"),
+    axis.ticks = element_line(linewidth = 1.5, color = "black"),
+    axis.ticks.length = unit(0.3, "cm")
+  ) +
+  labs(
+    x = "SEPAL LENGTH (cm)",
+    y = "PETAL LENGTH (cm)",
+    title = "IRIS DATA",
+    color = "SPECIES"
+  ) +
+  ggtitle("IRIS SEPAL VS PETAL LENGTH")
+
+
+```
+
+## 5. Use Labels
+
+When you have particular data points you want the reader to focus on, labels are a great way to do so. Let's add some labels to the US states with the highest murder rates.
+
+```{r}
+library(ggrepel) # not strictly necessary, but if you find your labels overlapping this will nudge them so they don't!
+data("USArrests")
+
+states_to_label <- rownames(USArrests)[grepl("a$", rownames(USArrests))]
+  
+USArrests %>% 
+  rownames_to_column(var = "state") %>% 
+  filter(state %in% states_to_label) %>% 
+  ggplot(aes(x = UrbanPop, y = Murder)) +
+  geom_point() +
+  geom_text_repel(
+    aes(label = state),
+    size = 3
+  ) +
+  theme_classic() +
+  labs(x = "Urban Population (%)",
+       y = "Murder Rate (per 100,000)")
+```
+
+## EXERCISE
+
+Plot hp vs. mpg in the mtcars2 data and label the dots of four cars of interest to you in the data.
+
+```{r}
+# Your code here
+
+
+
+```
+
+## 6. Utilize Micro/Macro
+
+This is a tricky one where sometimes cases arise where adding detail can actually clarify meaning. This often comes up when an information/detail rich figure contains an overarching pattern.
+
+```{r}
+
+# Calculate global average by year (the MACRO pattern)
+global_avg <- gapminder %>%
+  group_by(year) %>%
+  summarize(avg_lifeExp = mean(lifeExp))
+
+# Plot all countries (MICRO) with global trend (MACRO)
+ggplot() +
+  geom_line(
+    data = gapminder,
+    aes(x = year, y = lifeExp, group = country),
+    alpha = 0.2,
+    linewidth = 0.3,
+    color = "gray50"
+  ) +
+  geom_line(
+    data = global_avg,
+    aes(x = year, y = avg_lifeExp),
+    color = "firebrick",
+    linewidth = 1.5
+  ) +
+  theme_minimal() +
+  labs(
+    x = "Year",
+    y = "Life Expectancy (years)",
+    title = "Global Life Expectancy Over Time",
+  )
+```
+
+```{r}
+ggplot(gapminder, aes(x = year, y = lifeExp, group = country)) +
+  geom_line(alpha = 0.4, linewidth = 0.3) +
+  facet_wrap(~continent, nrow = 1) +
+  scale_x_continuous(breaks = seq(1960, 2000, by = 20)) +
+  theme_minimal() +
+  theme(
+    strip.text = element_text(face = "bold")
+  ) +
+  labs(
+    x = "Year",
+    y = "Life Expectancy",
+    title = "Life Expectancy Trends by Continent",
+  )
+```
+
+So we have some micro trends with the continents to look at more closely here, let's see how the next rules can help us visualize this information more clearly.
+
+## 7. Separate Layers
+
+Visually separating elements through the use of colour or shading often allows information to easily be separated and trends to emerge. Let's carry on and build up our example from 6 applying this rule to improve it.
+
+```{r}
+# Calculate averages
+global_avg <- gapminder %>%
+  group_by(year) %>%
+  summarize(avg_lifeExp = mean(lifeExp))
+
+main_plot <- ggplot() +
+  # Individual countries
+  geom_line(
+    data = gapminder,
+    aes(x = year, y = lifeExp, group = country, color = continent),
+    alpha = 0.25,
+    linewidth = 0.3
+  ) +
+  guides(color = guide_legend(override.aes = list(linewidth = 2, alpha = 1))) +
+  # Global average
+  geom_line(
+    data = global_avg,
+    aes(x = year, y = avg_lifeExp),
+    color = "firebrick",
+    linewidth = 1.5
+  ) +
+  theme_classic() +
+  theme(
+    plot.title = element_text(face = "bold")
+  ) +
+  labs(
+    x = NULL,
+    y = "Life Expectancy (years)",
+    title = "Global "
+  ) 
+
+main_plot
+```
+
+## 8. Use Multiples
+
+Among the most important graphic techniques emphasized by Tufte is the use of 'small multiples' repeated panels that convey (often temporal) differences (often in maps).
+
+```{r echo=FALSE, fig.align="center", include=TRUE, fig.height=10, out.width="100%", out.height="40%"}
+knitr::include_graphics(path.expand("../Figures/amazon.png"))
+```
+
+Let's go back to our global life expectancy data and apply this rule :
+
+```{r}
+# Calculate averages
+global_avg <- gapminder %>%
+  group_by(year) %>%
+  summarize(avg_lifeExp = mean(lifeExp))
+
+main_plot <- ggplot() +
+  geom_line(
+    data = gapminder,
+    aes(x = year, y = lifeExp, group = country, color = continent),
+    alpha = 0.25,
+    linewidth = 0.3
+  ) +
+  guides(color = guide_legend(override.aes = list(linewidth = 2, alpha = 1))) +
+  geom_line(
+    data = global_avg,
+    aes(x = year, y = avg_lifeExp),
+    color = "firebrick",
+    linewidth = 1.5
+  ) +
+  theme_classic() +
+  theme(
+    plot.title = element_text(face = "bold")
+  ) +
+  labs(
+    x = NULL,
+    y = "Life Expectancy (years)",
+    title = "Global"
+  )
+
+facet_plot <- 
+  ggplot() +
+  geom_line(
+    data = gapminder,
+    aes(x = year, y = lifeExp, group = country, color = continent),
+    alpha = 0.3,
+    linewidth = 0.3
+  ) +
+  geom_line(
+    data = global_avg,
+    aes(x = year, y = avg_lifeExp),
+    color = "firebrick",
+    linewidth = 1
+  ) +
+  facet_wrap(~continent, nrow = 1) +
+  theme_classic() +
+  scale_x_continuous(breaks = seq(1960, 2000, by = 20)) +
+  theme(
+    strip.text = element_text(face = "bold"),
+    plot.title = element_text(face = "bold"),
+    legend.position = "none"  # Hide legend on this plot
+  ) +
+  labs(
+    x = "Year",
+    y = "Life Expectancy (years)",
+    title = "By Continent"
+  )
+
+main_plot / facet_plot +
+  plot_layout(heights = c(2, 2), guides = "collect")
+
+```
+
+## 9. The diversity of color options (Check the cheatsheet!)
+
+We will use `ggplot` going forward. I strongly recommend using `base` plot and keeping familiar with these tools, but `ggplot` will help us move forward a bit faster. It also lends itself to a suite of color palettes that can illuminate patterns quite elegantly.\
+
+It is important to recognize that color palettes are a abroad category that can describe continuous or discrete data. In other words, we are either coloring/filling our data against a smoothed or binned scale.
+
+### A time series example
+
+```{r}
+# Here is a dataset of CO2 concentrations at Mauna Loa through the late 20th century.
+data("co2")
+
+plot(co2, ylab = expression("Atmospheric concentration of CO"[2]))
+```
+
+Note that this a time series object, a preview to our temporal data topics to follow.
+
+```{r}
+# Convert to data frame
+co2_df <- data.frame(
+  co2 = as.numeric(co2),
+  year = trunc(time(co2)),
+  month = month.abb[cycle(co2)]
+)
+
+ggplot(co2_df, aes(x = year, y = co2, color = month))+
+  geom_line()+
+  theme_minimal(10)
+```
+
+This plot is OK. But several issues relating to color representations could be addressed to improve it. The default ggplot palette is qualitative (unordered) and doesn't reflect monthly differences that we might easily recognize.
+
+```{r}
+ggplot(co2_df, aes(x = year, y = co2, color = month))+
+  geom_line()+
+  theme_minimal(10)+
+  scale_color_manual(values = viridis(length(unique(co2_df$month))))
+
+# Order seasonally, not alphabetically (R default)
+co2_df %>% 
+  mutate(month = factor(month, levels = month.abb)) %>% 
+  ggplot(aes(x = year, y = co2, color = month))+
+  geom_line()+
+  theme_minimal(10)+
+  scale_color_manual(values = viridis(length(unique(co2_df$month))))+
+  labs(x = "Year", y = expression("pC0"[2] ~ "(ppm)"))
+```
+
+What if, instead, we colored continuous values (CO2) values instead of discrete months?
+
+```{r}
+
+co2_df %>% 
+  # Including a grouping argument to ensure months are distinguished
+  ggplot(aes(x = year, 
+             y = co2, 
+             group = month))+
+  geom_line(aes(color = co2))+
+  theme_minimal(10)+
+  scale_colour_gradient(low = "blue", 
+                       high = "#E74C3C")+
+  labs(x = "Year", y = expression("pC0"[2] ~ "(ppm)"))+
+    # The scale bar is redundant here
+    theme(legend.position = "none")
+```
+
+### A brief look at R color palettes
+
+in R, colors are primarily specified by some character (e.g., `col = "red"`) or by a hexadecimal code (e.g., `col = "#CC6677"`). The hexadecimal codes specify variations on the RGB scale (`#rrggbb`), with 16 possible values for each character (0,1,2,3,4,5,6,7,8,9,A,B,C,D,E,F). Both work, the latter often allows enhanced customization. These colors can be used to construct palettes representing qualitative, sequential, or diverging sets. This is just a light touch of background.
+
+Prior to R v. 4.0.0, these were typical coloring defaults:
+
+```{r}
+example <- rnorm(100)
+plot(example,
+     col = oce.colorsJet(10), 
+     cex = 2)
+```
+
+\
+
+```{r, out.height="70%", out.width="80%"}
+RColorBrewer::display.brewer.all()
+```
+
+Here is an example from the [**Economist**](https://www.economist.com) using sequential palettes and excellent visualization features to quicky convey the key message: Sea ice in the Arctic Ocean has been steadily retreating (on average) towards present. The sequential color palette nicely corresponds to a progressively colder scale.
+
+```{r echo=FALSE, fig.align="center", include=TRUE, fig.height=15}
+knitr::include_graphics(path.expand("../Figures/Figure_2.png"))
+```
+
+### Conscientious visuals
+
+Many people see things differently. Among all the reasons for this, are innate differences in visual perception owing to color vision deficiencies. The are several types (red-green, blue-yellow, complete) that should inform how we can create better graphics that reach as wide an audience as possible. A major fault in these classic color palettes (e.g., the infamous `jet` palette) is that they are imbalanced representations of value differences with highly saturated colors. Much has changed. Many options are now available. Some highly developed packages for generating different color palettes that can be fed into `base` or `ggplot` include `RColorBrewer`, `colorspace`, and `viridis`. Check [**this**](https://journal.r-project.org/articles/RJ-2023-071/) out for some helpful examples and a bank of color codes that are more accessible.
+
+This figure displays the discrepancies that can occur in visual perception and the importance of considering these differences when displaying data.
+
+```{r echo=FALSE, fig.align="center", include=TRUE, out.height="30%", out.width="50%"}
+knitr::include_graphics(path.expand("../Figures/Figure_3.png"))
+```
+
+Another example from the **Economist**. In this case, the main title sets the stage to interpret the figures main components: The relative jump in housing prices was significant leading up to the COVID pandemic and was forecasted (in many places, underestimated!) to grow into this decade. The main color palettes are qualitative and the forecast uncertainties are shows in an easy-to-understand sequential palette. Our eyes naturally register country-level differences at the right side of the plot and the color codes are purposefully chosen to prevent too many similar colors bunching together in this space. Imagine if colors were chosen ignoring this, it might be as difficult as it is looking at the left side of the plot.
+
+```{r echo=FALSE, fig.align="center", include=TRUE, fig.height=15}
+knitr::include_graphics(path.expand("../Figures/Figure_4.png"))
+```
+
+\
+Color is an extremely useful way to communicate information, as such it's important to avoid negligent pitfalls and mistakes. But it is one component of several that support an effective scientific visualization. Shapes can also be useful distinctions between groups, and the overall arrangement of your visualizations is what guides the human eye to scan for information and interpret the story.
+
+## EXERCISE
+
+Use the facet_wrap geom to plot player age versus batting average for every team in the MLB 2017 batting data. Be sure to label each panel with the team name code.
+
+```{r}
+#YOUR CODE HERE
+
+
+
+```
+
+## 10. Understand Narrative
+
+Having a firm grasp on the narrative of your plots is the key to producing good graphical work. Graphics should tell a story, often the narrative of a paper will fall out naturally from good figures.
+
+## References
+
+1.  <https://github.com/jumpingrivers/datasauRus>
+
+2.  MacNeil MA, Graham NAJ, Cinner JE, Wilson SK, Williams ID, Maina J, Newman S, Friedlander AM, Jupiter S, Polunin NVC, McClanahan TR. 2015. Recovery potential of the world's coral reef fishes. Nature. 520(7547):341-344. <doi:10.1038/nature14358>
+
+3.  Spiegelhalter D. 2019. The art of statistics: how to learn from data. London (UK): Pelican Books; 2019. Github for chart : <https://github.com/dspiegel29>
