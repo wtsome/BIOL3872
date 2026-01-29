@@ -1,0 +1,125 @@
+---
+title: "Biol 3872 Lab4-Assignment"
+author: ""
+student_id: ""
+date: "`r Sys.Date()`"
+editor_options:
+  chunk_output_type: inline
+---
+
+\
+**BEFORE STARTING:**\
+1. Include your name (as shown in Brightspace) in the `author` section above as text (e.g., "Liam MacNeil") and Banner ID ("B00123456") in `student_id`.\
+2. Install and load the packages required to run your code chunks/
+
+Assignments will largely be evaluated based on your code chunk answers. If they are incomplete or formatted incorrectly (e.g., code chunks don't run), no marks will be awarded. I recommend experimenting with solving these answers in a separate script/markdown document and reporting your answers with minimal script.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# Load the packages needed to answer the questions below. If you realize you need a package, load (install if needed) here.
+library(tidyverse)
+library(RColorBrewer)
+library(colorspace)
+library(patchwork)
+```
+
+::: {style="background-color: #44AA99; padding: padding: 5px; border-radius: 2px;"}
+
+## Task 1 {2 points}
+
+A) Using the iris dataset, create a `ggplot` showing only the mean sepal length for each species using the `stat_summary` function and `geom` crossbar. Store in variable `iris_mean.` 
+
+B) Now add a `geom` jitter layer to your plot showing how the data is distributed around the mean. Store in variable `iris_data.`
+```{r}
+data("iris")
+#A)
+# YOUR CODE HERE
+
+#B)
+# YOUR CODE HERE
+```
+:::
+
+\
+
+::: {style="background-color: #44AA99; padding: padding: 5px; border-radius: 2px;"}
+
+## Task 2 {3 points}
+
+Use the `mtcars` data set to compare fuel efficiency of car models and store as unique `ggplot` objects for each question named `fuel_efficiency_plot_a`, `fuel_efficiency_plot_b`, etc. Think about Tufte's rules 5, 7, 9.
+
+A)  Transform rownames to a column titled `cartype`, convert this column to a factor ordered (descending) by the average `mpg` (miles per gallon), pipe this modified dataframe into a `ggplot` barplot.
+
+B)  Add to `fuel_efficiency_plot_a`, a minimal theme with 12 font size, adjust the x labels to 45 degrees and horizontally (right) justify labels.
+
+C)  Add to `fuel_efficiency_plot_b`, another column `geom` which is filled by car weight with a `viridis` color scheme.
+```{r}
+data("mtcars")
+# A)
+# YOUR CODE HERE
+# B)
+# YOUR CODE HERE
+# C)
+# YOUR CODE HERE
+```
+:::
+
+\
+
+::: {style="background-color: #44AA99; padding: padding: 5px; border-radius: 2px;"}
+
+## Task 3 {1 point}
+
+A)  Use `patchwork` to combine a new plot with `fuel_efficiency_plot_c` called `horsepower_plot`. Execute similar data manipulation steps as in **Task 2** to convert rownames to an ordered column as a factor. Pipe this step into a ggplot object with horsepower as the y axis (Think: What would the x axis need to be to combine with `fuel_efficiency_plot_c`?), add a scatterplot `geom` with enlarged points (`size = 3`), a minimal theme with 12 point font, a modified x axis and color palettes identical to `fuel_efficiency_plot_c`.
+
+Patch this `cars_compared` plot with `fuel_efficiency_plot_c` as a single column with two rows and combine the two x axes to avoid redundancy.
+
+```{r}
+# A)
+# YOUR CODE HERE
+```
+:::
+
+\
+
+::: {style="background-color: #44AA99; padding: padding: 5px; border-radius: 2px;"}
+
+## Task 4 {2 points}
+
+A) Load in the CO2 data set used during the lab exercise and render it as a data frame called `co2_df` with columns `co2`, `year`, and `month`. Recall the steps taken during the exercise to properly format the data frame. Create a new column called `season` by three month intervals (Dec, Jan, Feb = Winter / Mar, Apr, May = Spring, etc.). Check out the `ifelse` statements from lab 2.
+
+B) Order the season variable as a factor (Levels = Winter, Spring, Summer, Autumn). Create a `ggplot` object named `seasonal_co2` plotting years on the x-axis and co2 concentration on the y-axis. Add a point `geom` colored by season with these colors ("#0072B2", "#009E73", "#CC79A7", "#E69F00"), a jitter `geom` to separate points for visualization, and a minimal `theme` with 12 point font.
+
+```{r}
+# A)
+data("co2")
+# YOUR CODE HERE
+# B)
+# YOUR CODE HERE
+```
+:::
+
+\
+
+::: {style="background-color: #44AA99; padding: padding: 5px; border-radius: 2px;"}
+
+## Task 5 {1 point}
+
+A) Using the same `co2_df` as above, order the months by the calender order (not alphabetical) as shown in the exercise. Create a `ggplot` object named `ordered_co2_friendly` comparing yearly co2 concentrations (same as Task 4). Add a point `geom` and a minimal `theme` with 12 point font and a manual color-blind friendly palette `scale` using `diverge_hcl` from `colorspace`. Finally, `facet` this plot by season.
+
+```{r}
+# A)
+# YOUR CODE HERE
+```
+:::
+
+\
+
+**BEFORE SUBMITTING**
+
+Clear your environment (broom) and run your entire script to ensure everything has been defined properly!
+
+Be sure to submit this `markdown` file to the relevant Brightspace submission box.
