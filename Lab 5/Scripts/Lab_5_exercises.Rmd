@@ -1,0 +1,629 @@
+---
+title: 'Lab 5: Flow control and functions explained '
+subtitle: "February 5, 2025"
+author: "Liam MacNeil & Sophie Tattrie"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+  css: styles.css
+editor_options:
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      fig.align   = 'center')
+```
+
+## Learning objectives
+
+After completing this lab, you will:
+
+1.  Understand flow control of R statements
+2.  Understand basic if else statements, for loops, and functions
+3.  Common methods of data manipulation in dplyr (joins, group_by, summarize)
+4.  Apply simple examples of these tools onto mock and real data
+
+## Flow control
+
+Labs 1-4 have so far focused on linear statements (credit Diego Ibarra).
+
+```{r echo=FALSE, fig.align="center", fig.height=10, include=TRUE, out.height="40%", out.width="100%"}
+knitr::include_graphics(path.expand("../Figures/flow1.png"))
+```
+
+There are ways to modify statements that allow controlling the flow of statement execution. Below we explore some flow control methods.
+
+### `if` statements
+
+An `if` statement we have already encountered.
+
+```{r}
+packages <- c("ggplot2", "dplyr", "dplyr", "tidyr")
+
+
+# Install packages not yet installed
+installed_packages <- packages %in% installed.packages()
+if (any(installed_packages == FALSE)) {
+  install.packages(packages[!installed_packages])
+}
+
+# Packages loading
+invisible(lapply(packages, library, character.only = TRUE))
+
+```
+
+```{r}
+# Example of IF statement where condition is TRUE
+
+x <- 1e6
+
+if (x < 0) {
+  print("x is greater than or equal to 1e-6")
+}
+
+```
+
+\
+Visually, this is what this process is doing.
+
+```{r echo=FALSE, fig.align="center", fig.height=10, include=TRUE, out.height="40%", out.width="100%"}
+knitr::include_graphics(path.expand("../Figures/if_1.png"))
+```
+
+### `ifelse` statements
+
+Often, we want another condition when the `if` statement is `FALSE`. This is an `ifelse` statement.
+
+```{r echo=FALSE, fig.align="center", fig.height=10, include=TRUE, out.height="40%", out.width="100%"}
+knitr::include_graphics(path.expand("../Figures/if_2.png"))
+```
+
+Here is the example already used in **Lab 2**.
+
+```{r}
+example <- data.frame(x = rnorm(100),
+                      y = rnorm(100, sd = 2))
+
+# Note that this example is vectorized (It checks whole set rather than element-by-element)
+# This can be doubled to two conditions!
+example$iffy <- ifelse(example$y > 1, "Large", "Small")
+
+x <- -10
+
+if (x < 0) {
+  print("x is greater than or equal to 10")
+} else {
+  print("x is less than 10")
+}
+
+```
+
+We can make these more complex and chain them together in an `ifelse` + `ifelse` + ...
+
+The syntax is: `if` (CONDITION_1 == TRUE) { DO THIS } `else` `if` (CONDITION_2 == TRUE) { DO THIS } `else` { DO THIS }
+
+```{r echo=FALSE, fig.align="center", fig.height=10, include=TRUE, out.height="40%", out.width="100%"}
+knitr::include_graphics(path.expand("../Figures/if_3.png"))
+```
+
+Here, if the first condition is `FALSE`, then the flow moves to the second condition. If that condition is `FALSE`, then on it goes, and so on. This type of block starts `if` statement however it may or may not finish with an `else` statement depending on whether you want the last action to be "do nothing".
+
+### Task 1
+
+Build a multi-chain `ifelse` statement based on the syntax above:
+
+```{r}
+# YOUR CODE HERE
+
+```
+
+\
+
+There are other types of conditional statements that are useful to keep in mind.
+
+```{r}
+x <- 1e-20
+
+if (is.numeric(x)) {
+  print("x is numeric")
+} else {
+  x <- as.numeric(x)
+  print(x)
+  # THERE COULD BE ANOTHER ELSE IF here to continue
+}
+
+```
+
+### for loops
+
+If you want to iterate operations over something (vector, data frame), consider a `for()` loop. These loops are flexible but can be tricky. In general, `for()` loops are helpful to apply sequences of operations across a set of data.
+
+```{r echo=FALSE, fig.align="center", fig.height=10, include=TRUE, out.height="40%", out.width="100%"}
+knitr::include_graphics(path.expand("../Figures/for_loop.png"))
+```
+
+```{r}
+example_2 <- rnorm(100, sd = pi)
+
+for (i in example_2) {
+  z <- i * pi
+}
+```
+
+\
+\### Nesting? `for` loops can also be nested such that sequences of operations are embedded within a larger sequence. It's convenient for small scale stuff (e.g., labelling sample IDs for consistency) but will **quickly runs into computational limits with big data sets**.
+
+```{r}
+for (i in 1:10) {
+  for (j in letters[1:10]) {
+    print(paste0(i, "_", j))
+  }
+}
+```
+
+\
+
+Loops with real data from annual DFO ground fish surveys^1^.
+
+```{r echo=FALSE, fig.align="center", fig.height=10, include=TRUE, out.height="40%", out.width="100%"}
+knitr::include_graphics(path.expand("../Figures/Scotian_shelf.png"))
+```
+
+```{r}
+fish_abundance <- read.csv("../Data/Groundfish_surveys.csv")
+
+hist(fish_abundance$depth)
+
+fish_abundance %>% 
+  mutate(year = sort(factor(year, levels = as.character(2016:2020)))) %>% 
+  # Remove so log transform doesn't produce negative values
+  filter(num_cpue > 0) %>% 
+  ggplot(aes(x = log(num_cpue), y = depth, color = year))+
+  geom_point(alpha = 0.5) + 
+  scale_y_reverse() +
+  theme_bw(12)+
+  scale_color_brewer(palette = "Spectral") +
+  guides(color = guide_legend(override.aes = list(alpha = 1, size = 4)))
+
+```
+
+What about summarizing average abundance (`num_cpue`) of each fish species across different depth categories? Let's define `deep`, `mesopelagic-ish`, and `shallow` 50, 150, and beyond, respectively.
+
+```{r}
+
+# Create new columns using ifelse condition
+fish_abundance$depth_category <- ifelse(fish_abundance$depth <= 50, 
+                                        "Shallow", 
+                                        ifelse(fish_abundance$depth > 50 & 
+                                                 fish_abundance$depth <= 150,
+                                               "Mesopelagicish", "Deep"))
+
+
+# Create objects to search over in for loop
+Depths <- rev(sort(unique(fish_abundance$depth_category)))
+Species <- unique(fish_abundance$accepted_name)
+
+# This is a list! Like a vector but more flexible (can store multiple data types)
+Depths_output <- list()
+
+for(i in Depths) {
+  # Subset the data frame for depth catgeorgies
+    depth_group <- fish_abundance[fish_abundance$depth_category == i, ]
+    for(z in Species){
+      # For species within that category
+      species_depth_group <- depth_group[depth_group$accepted_name == z, ]
+      # If no species are found...
+      if (is.null(depth_group[depth_group$accepted_name == z, ])){
+        # Move on
+        next
+      }
+      # Otherwise, run these operations
+      mean_abundance_by_depth <- mean(species_depth_group$num_cpue, na.rm = TRUE)
+      # Store our mean abundance per species (z) per depth category (i) in the list
+      Depths_output[[z]][[i]] <- mean_abundance_by_depth
+    }
+}
+
+# Bind it all together (here, bind_rows rather than rbind gets around lists of lists)
+abundance_sp_dpth <- do.call(bind_rows, Depths_output) %>% 
+  mutate(Taxon = names(Depths_output)) %>% 
+    # This pivots the data frame
+  pivot_longer(cols = c("Shallow", "Mesopelagicish", "Deep"),
+               values_to = "num_cpue",
+               names_to = "Depth") %>% 
+  # This imputes zeros for all NAs (important assumption!)
+  # We could also drop them all if we're interested in apparent richness
+  replace((is.na(.)), 0)
+
+# We can visualize the group distribution
+ggplot(abundance_sp_dpth, aes(x = log(num_cpue)))+
+  geom_density(aes(fill = Depth), alpha = 0.35) +
+  #geom_histogram(aes(fill = Depth), alpha = 0.35)+
+  theme_minimal(12) +
+  scale_fill_viridis_d() +
+  #facet_wrap(~Depth) +
+  labs(x = "log(# per hour)") 
+
+```
+
+Checking out specific patterns for some ground fishes.
+
+```{r}
+
+# Looking a bit closer
+select_fishes <- c("Gadus", # Cod
+                "Melanogrammus", # Haddock
+                "Pollachius", # Pollock,
+                "Hippoglossoides", # Plaice
+                "Hippoglossus", # Plaice 
+                "Urophycis" # Hake
+                )
+
+# Select a group of species from the data frame subsetting for partial character string matches
+groundfishes <- abundance_sp_dpth[grepl(paste(select_fishes, 
+                                              collapse = "|"), 
+                                        abundance_sp_dpth$Taxon), ]
+
+# Plotting the relative abundance of each species across depths
+groundfishes %>% 
+  group_by(Taxon) %>% 
+  mutate(prop = num_cpue / sum(num_cpue)) %>% 
+  ungroup() %>% 
+  ggplot(aes(x = Taxon, y = prop, fill = Depth)) +
+  geom_col() +
+  scale_fill_viridis_d()+
+  labs(y = "%", x = "Species")+
+  theme(axis.text.x = element_text(angle = 40, hjust = 1))
+
+# We can also summarize community wide information in one (vectorized) *apply
+
+```
+
+### Task 2
+
+Use the the ground fish survey data^1^ frame example from lab 2. Create a `for()` loop that sums the total abundance (`num_cpue`) for each fish species, for each year.
+
+```{r}
+# YOUR CODE HERE
+
+```
+
+### Vectorizing operations with \*apply
+
+There are many vectorized options (as opposed to an explicit loop) now in R to accelerate the operations across big data sets. These are incredibly handy and fast! They don't exactly deal with flow control, but show how you can apply your knowledge of flow control to simple statements.
+
+```{r}
+data("iris")
+
+# Here is a potential solution to Lab 3 question 1.
+tapply(iris$Petal.Length, iris$Species, max)
+
+# What if we want the means of each numeric column without repeating this step?
+lapply(iris[sapply(iris, is.numeric)], mean)
+
+# What about means of each numeric column for each species?
+spec_means <- lapply(
+  split(iris[, sapply(iris, is.numeric)], iris$Species),
+  colMeans
+)
+
+spec_means
+
+# We can transform this back to a data frame
+do.call(rbind, spec_means)
+```
+
+### User-defined functions
+
+We have already introduced convenience functions. We can build our own functions too. These allow us to create custom functions that combine flow control statements (`ifelse`) and `for()` loops. They generally take this form:
+
+```{r}
+function_name <- function(arg_1, arg_2, ...) {
+   Function_body
+}
+```
+
+```{r}
+print_cube <- function(s) {
+  cubed <- s^3
+  print(cubed)
+}
+
+print_cube(10)
+```
+
+We can create functions that take *named* or *positional* arguments.
+
+```{r}
+useless_function <- function(x, y){
+  43 + x*y
+}
+
+x <- 10
+y <- 10
+
+useless_function(x, y)
+
+# These can be run on sequences (vectors)
+x <- seq(0,10, 2)
+y <- seq(10, 20, 2)
+useless_function(x, y)
+
+```
+
+Let's combine our `if` statements, `for()` loops, and functions to build a more complex but useful function that summarizes our fish abundance data.
+
+```{r}
+
+# A function calculating summary stats for fish abudance
+
+summarize_fish <- function(data, 
+                           species_col = "accepted_name", 
+                           abundance_col = "num_cpue",
+                           stat_type = "mean") {
+  
+  # Get unique species
+  species_list <- unique(data[[species_col]])
+  
+  # Create an empty data frame to store results
+  results <- data.frame(
+    species = character(),
+    value = numeric(),
+    stringsAsFactors = FALSE
+  )
+  
+  # Loop through each species
+  for (sp in species_list) {
+    # Subset data for this species
+    sp_data <- data[data[[species_col]] == sp, abundance_col]
+    
+    # Use if-else to select the appropriate statistic
+    if (stat_type == "mean") {
+      stat_value <- mean(sp_data, na.rm = TRUE)
+    } else if (stat_type == "median") {
+      stat_value <- median(sp_data, na.rm = TRUE)
+    } else if (stat_type == "max") {
+      stat_value <- max(sp_data, na.rm = TRUE)
+    } else if (stat_type == "sum") {
+      stat_value <- sum(sp_data, na.rm = TRUE)
+    } else {
+      stat_value <- mean(sp_data, na.rm = TRUE) #Default if unrecognized stat type
+
+    }
+    
+    # Add to results
+    results <- rbind(results, data.frame(species = sp, value = stat_value))
+  }
+  
+  return(results)
+}
+
+# Let's look at mean abundance 
+mean_abundance <- summarize_fish(fish_abundance, stat_type = "mean")
+
+
+# Try max abundance 
+max_abundance <- summarize_fish(fish_abundance, stat_type = "max")
+
+
+
+```
+
+### Task 3
+
+Create a function called `classify_abundance` that takes a numeric vector of abundance values and returns a character vector classifying each value as "Absent" (0), "Rare" (\< 10), "Common" (10-100), or "Abundant" (\> 100). Use `ifelse` statements inside your function.
+
+```{r}
+
+#YOUR CODE HERE
+
+```
+
+# Data manipulation tools for flow control
+
+## Pipes reminder `%>%`
+
+The pipe takes `%>%` takes the output of one function and passes it as the first argument to the next function. This is a very powerful way to chain operations together.
+
+```{r}
+
+# Without piping - nested functions - hard to read!
+head(arrange(filter(fish_abundance, num_cpue > 0), depth), 5)
+
+# With piping - same result - much cleaner!
+fish_abundance %>%
+  filter(num_cpue > 0) %>%
+  arrange(depth) %>%
+  head(5)
+
+```
+
+## Joining data frames
+
+In real-world data analysis, your data is often spread across multiple files or tables. The `dplyr` package provides powerful functions to combine data frames based on common columns. This is essential when you need to merge different data sources together and is among the more useful methods of data manipulation!
+
+### Types of joins
+
+There are several types of joins, useful in different situations:
+
+-   `left_join(x, y)`: Keep all rows from x, add matching columns from y
+-   `right_join(x, y)`: Keep all rows from y, add matching columns from x
+-   `inner_join(x, y)`: Keep only rows that match in both x and y
+-   `full_join(x, y)`: Keep all rows from both x and y
+
+```{r echo=FALSE, fig.align="center", fig.height=10, include=TRUE, out.height="40%", out.width="100%"}
+
+knitr::include_graphics(path.expand("../Figures/left_join.png"))
+```
+
+### Let's join some fish
+
+We'll split our fish data and then join in together again.
+
+```{r}
+
+# Data frame 1: Mean abundance per species (cpue)
+mean_by_species <- fish_abundance %>%
+  group_by(accepted_name) %>%
+  summarize(
+    mean_cpue = mean(num_cpue, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+
+# Data frame 2: Mean depth per species
+depth_by_species <- fish_abundance %>%
+  group_by(accepted_name) %>%
+  summarize(
+    mean_depth = mean(depth, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+
+```
+
+Now let's join again by the accepted_name column, species name is a very common column to join by in biological data as you often want to combine collected data with older data, or species traits!
+
+```{r}
+
+# Left join: Keep all species info, add abundance data
+combined <- left_join(mean_by_species, depth_by_species, by = "accepted_name")
+
+
+```
+
+### Joining with different column names
+
+What if the columns you want to join have different names in their respective dataframes? A few options...
+
+```{r}
+
+# Rename the column in one data frame
+depth_renamed <- depth_by_species %>%
+  rename(scientific_name = accepted_name)
+
+# Join using different column names
+joined_data <- left_join(depth_renamed, mean_by_species,
+                          by = c("scientific_name" = "accepted_name"))
+
+
+
+```
+
+### Inner join vs. Left join
+
+```{r}
+
+# Create a subset with only the first 5 species
+subset_species <- depth_by_species %>%
+  slice(1:5)
+
+nrow(subset_species)
+
+# Left join: keeps all rows from mean_by_species
+left_result <- left_join(mean_by_species, subset_species, by = "accepted_name")
+nrow(left_result)
+
+# Inner join: keeps only matching rows
+inner_result <- inner_join(mean_by_species, subset_species, by = "accepted_name")
+nrow(inner_result)
+
+# Notice the difference in row counts!
+```
+
+### Task 4
+
+Using the fish abundance data, create two separate data frames:
+
+1.  A data frame with average abundance per species per year
+2.  A data frame with average depth per species
+
+Then use a join to combine these two data frames. Which type of join is most appropriate here?
+
+```{r}
+# YOUR CODE HERE
+
+# Data frame 1: Average abundance per species per year
+abundance_by_year <- fish_abundance %>%
+  group_by(accepted_name, year) %>%
+  summarize(
+    mean_cpue = mean(num_cpue, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Data frame 2: Average depth per species
+depth_by_species <- fish_abundance %>%
+  group_by(accepted_name) %>%
+  summarize(
+    mean_depth = mean(depth, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+```
+
+## Sometimes we can replace loops
+
+There are some clever ways to use `dplyr` data manipulation tricks to do the same thing loops do in an easier way. Let's look at `group_by()` and `summarize()`. We're going to to re-recreate our depth abundance loop from above with `group_by`!
+
+```{r}
+
+abundance_dplyr <- fish_abundance %>%
+  group_by(accepted_name, depth_category) %>%
+  summarize(
+    mean_cpue = mean(num_cpue, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+
+
+```
+
+Now let's use `summarize` to do what our summarize function did above, only much easier!
+
+```{r}
+
+abundance_detailed <- fish_abundance %>%
+  group_by(accepted_name, depth_category, year) %>%
+  summarize(
+    mean_cpue = mean(num_cpue, na.rm = TRUE),
+    sd_cpue = sd(num_cpue, na.rm = TRUE),
+    n = n(),
+    .groups = "drop"
+  )
+
+
+
+```
+
+### When to use loops vs. dplyr
+
+Use `for()` loops when:
+
+-   Operations depend on previous iterations
+-   Complex conditional logic
+-   Learning programming concepts
+
+Use `dplyr()` when :
+
+-   Each group is independent
+-   Data frame transformations
+
+## Summary
+
+In this lab, we covered:
+
+1.  **Flow control** with `if`, `else`, and `ifelse` statements
+
+2.  **`for()` loops** for iterating over data
+
+3.  **User-defined functions** that combine flow control concepts
+
+4.  **Joining data frames** using `dplyr` join functions
+
+5.  **`group_by()` and `summarize()`** as alternatives to loops in some cases
+
+## References
+
+1.  Maureaud, A. A. et al. FISHGLOB_data: an integrated dataset of fish biodiversity sampled with scientific bottom-trawl surveys. Sci Data 11, 24 (2024).
