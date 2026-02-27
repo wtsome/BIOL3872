@@ -1,0 +1,432 @@
+---
+title: 'Lab 6: Temporal data'
+subtitle: "February 26, 2025"
+author: "Liam MacNeil & Reid Steele"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+  css: styles.css
+editor_options:
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Learning objectives
+
+After completing this lab, you will:
+
+1.  Understand how time is encoded
+2.  Use the `tidyverse` and `lubridate` to handle time information
+3.  Understand how to visualize temporal data
+4.  Be able to summarize and index temporal data
+
+```{r}
+packages <- c("tidyverse", "lubridate", "nycflights13", "oce", "patchwork", "timetk")
+
+
+# Install packages not yet installed
+installed_packages <- packages %in% installed.packages()
+
+if (any(installed_packages == FALSE)) {
+  install.packages(packages[!installed_packages])
+}
+
+# Packages loading
+
+invisible(lapply(packages, library, character.only = TRUE))
+```
+
+## Time and time again.
+
+We have shown with real data (e.g., Groundfish trawls) that years can be shown by numbers and months by numbers and abbreviations.
+
+```{r}
+today()
+
+now()
+
+Sys.timezone()
+```
+
+### Timing matters.
+
+Coordinated Universal Time (UTC) is the common time reference around the world. Time is inextricably linked to location, with the prime meridian (0°) located in Greenwich (UK) due the early establishment of the Royal Observatory. Greenwich Mean Time (GMT) is the standard reference (not Paris Mean Time, + 9 mins 21 seconds). Local times are estimated relative to their longitudinal distance from the the prime meridian (in time zones)— these are extremely precise using atomic clocks measuring oscillations in Cesium-133— and have replaced historic methods based on the Earth's rotation and solar time (noon when the sun at its zenith).
+
+Credit: NOAA
+
+```{r echo=FALSE, fig.align="center", fig.height=10, include=TRUE, out.height="40%", out.width="100%"}
+knitr::include_graphics(path.expand("../Figures/zones_mollweide_m.png"))
+```
+
+Although time is measured with breathtaking accuracy, it can be tricky to deal with in practice. In Biology (and the natural sciences more generally), observations differ immensely in their temporal resolution, spanning annual species reports to daily or sub-hourly records of species presence or movement activity. **They also vary in their formats**.
+
+Typically, there are:\
+- Dates (year, month, day)\
+- Times (hour, minute, seconds)\
+- Datetimes / Time-stamps (Full date and time information)
+
+```{r}
+#NOTE that this is not a date
+d <- "2025-02-26"
+
+# Encoding dates and times
+d <- as.Date(d)
+```
+
+Just because characters are written like dates, does not guarantee they will be encoded properly. `base` R can transform these into dates.
+
+The unambiguous date formats typically follow:\
+- `date = YYYY-MM-DD`\
+- `date = YYYY/MM/DD`
+
+**The order and the separators matter, if you get an error, check these formats.**
+
+### Converting dates and times
+
+The specification of formats (`as.Date(..., format = ...`) have unique symbols:\
+
+Take e.g., this datetime `2025-02-01 15:35:20`:
+
+| Type  |  Code  |      Meaning      | Example  |
+|:-----:|:------:|:-----------------:|:--------:|
+| Year  |  `%Y`  |   4 digit year    |   2025   |
+|       |  `%y`  |   2 digit year    |    25    |
+| Month |  `%m`  |      Number       |    02    |
+|       |  `%b`  |     Abbr name     |   Feb    |
+|       |  `%B`  |       Name        | February |
+|  Day  | `%d`\* | One or two digits |   01/1   |
+| Time  |  `%H`  |      24 hour      |    15    |
+|       |  `%I`  |      12 hour      |    3     |
+|       |  `%M`  |      Minutes      |    35    |
+|       |  `%S`  |      Seconds      |    20    |
+|       |  `%p`  |       AM/PM       |    PM    |
+
+-   You can also use `%e` for day with only one number, but `%d` usually works across the board.
+
+You can find these formats and their descriptions in R by running `?strptime()`
+
+```{r}
+# These functions try to automatically find the correct unambiguous format, but we can specify if needed.
+as.Date("13-02-2012", format = "%d-%m-%Y")
+
+# Note that base R date functions return NAs if the format doesn't match
+as.Date("13/02/2012", format = "%d-%m-%Y")
+
+# Can other formats be read unambiguously?
+
+
+
+# This can cause problems if you have inconsistent date formats in your data
+as.Date(c("13-02-2012", "13/02/2012"), format = "%d-%m-%Y")
+
+# Also, be careful of misreads
+as.Date("13-02-2012")
+
+# Note that this function does not retain datetime information
+as.Date("2025-02-01 15:35:20")
+
+```
+
+For these more detailed date times, we need a different object. The `POSIX*` (**P**ortable **O**perating **S**ystem **I**nterface) object encodes this information. There are two main types: `POSIXlt` and `POSIXct`— local time and calender time, respectively. They differ in how they store datetimes, `POSIXct` tends to work well with data frames while `POSIXlt` is very efficient in memory storage (as a list).
+
+```{r}
+cal_time <- as.POSIXct("2025-02-01 15:35:20")
+loc_time <- as.POSIXlt("2025-02-01 15:35:20")
+```
+
+## Task 1:
+
+A)  Modify the enclosed character strings to a proper (unambiguous) date or datetime format
+
+```{r}
+# YOUR CODE HERE
+
+"February-26-2026"
+
+"Jul/29/01"
+
+"Dec-9-95"
+
+"December/4/13 19:11:31"
+
+"December-19-10 9:30:49pm"
+
+```
+
+Let's check a few more formats and important features.
+
+```{r}
+# Example to display in AM/PM
+ex_datetime <- as.POSIXct("December-19-10 9:30:49pm", format = "%B-%d-%y %I:%M:%S%p")
+
+format(ex_datetime, format = "%B-%d-%y %I:%M:%S%p")
+
+?timezones
+# Example to display timezones
+ex_tz <- as.POSIXct("December-19-10 09:30:49", format = "%B-%d-%y %H:%M:%S", tz = "UTC")
+
+tz(ex_tz)
+
+with_tz(ex_tz,"Japan")
+```
+
+The `lubridate` package is an excellent companion to work with data frames and in turn, with `ggplot2`.
+
+```{r}
+# Month-day-year
+mdy("01-12-1999")
+
+# Variations
+#ymd(...)
+#ydm(...)
+
+#
+```
+
+### Assigning many dates at once
+
+Load in the `flights` data, recording NYC departure flight metadata from 2013.
+
+```{r}
+flights <- flights %>% 
+  select(year:minute)
+```
+
+We can use `lubridate` to create a column `datetime` using the `make_datetime` function which takes arguments from years to seconds (we only have to minutes).
+
+```{r}
+flights_date_time <- flights %>% 
+  # Create new datetime column
+  mutate(datetime = make_datetime(year = year, 
+                                  month = month,
+                                  day = day, 
+                                  hour = hour)) 
+
+# Deconstruct datetimes to include calendar info
+flights_calendar <- flights_date_time %>% 
+  mutate(day_of_week = wday(datetime),
+    week_of_year = week(datetime),
+    day_of_year = yday(datetime)) %>% 
+  count(day_of_year, day_of_week, week_of_year)
+
+# Plotting flight counts
+flights_calendar %>% 
+  ggplot(aes(x = week_of_year, y = day_of_week, fill = n)) +
+  geom_tile(color = "white") +
+  theme_minimal(12) +
+  coord_equal() +
+  scale_fill_gradient(high = "#3288BD", low = "grey90") +
+  labs(
+    y = element_blank(),
+    x = "Week number",
+    fill = "Flights",
+    title = "NYC departures in 2013"
+  )
+```
+
+`Lubridate` can also extra datetime information using various functions from `year` to `second`. We will use them below.
+
+### The Bedford Basin time series
+
+This data is a snippet from the weekly time series taken here in the Bedford Basin. It has been running since 1992 collecting oceanographic measurements and water samples to record plankton communities. In 2014, these methods started including targeted sequencing (metabarcoding) to more accurately capture diversity. This data is part of several published works, e.g., ^1^.
+
+```{r}
+Bedford_ts <- read.csv("../Data/BedfordBasin_ts.csv"); Bedford_ts = Bedford_ts[,-1] # Remove row name duplicate column
+```
+
+## Task 2:
+
+A)  Convert the `Date` column to an appropriate format.
+B)  Create extra columns called `year`, `month`, and `day` extracting this information from that column.
+C)  Create a new column converting month numbers to names (abbreviations or full names)
+D)  Create an object called `Bedford_Date` by combining the `year`, `month`, and `day` columns into a new date object. Show that this date object is identical to the `Date` column of `Bedford_ts`.
+
+```{r}
+# YOUR CODE HERE
+
+```
+
+### Visualizing dates and labels
+
+```{r}
+# Microbial richness
+r <- Bedford_ts %>% 
+  mutate(Month_name = factor(Month_name, levels = month.abb)) %>% 
+  ggplot(aes(x = Date, y = Richness, color = Month_name))+
+  geom_point()+
+  theme_minimal(12) +
+  scale_x_date(date_minor_breaks = "2 month", date_labels = "%Y")
+
+#Temperature
+t <- Bedford_ts %>% 
+  mutate(Month_name = factor(Month_name, levels = month.abb)) %>% 
+  ggplot(aes(x = Date, y = Temperature, color = Temperature))+
+  geom_point()+
+  theme_minimal(12) +
+  scale_x_date(date_minor_breaks = "2 month", date_labels = "%Y")+
+  scale_color_gradientn(colors = oce.colorsTemperature(20))
+
+#Chl-A
+c <- Bedford_ts %>% 
+  mutate(Month_name = factor(Month_name, levels = month.abb)) %>% 
+  ggplot(aes(x = Date, y = Chlorophyll_log, color = Chlorophyll_log))+
+  geom_point()+
+  theme_minimal(12) +
+  scale_x_date(date_minor_breaks = "2 month", date_labels = "%Y")+
+  scale_color_gradientn(colors = oce.colorsChlorophyll(20))
+
+r + t + c + plot_layout(ncol = 1)
+```
+
+### Time Math
+
+Normally, R does not allow you to run mathematical operations on characters.
+
+```{r}
+# try lets us run things that would normally error without stopping R
+try('apple' + 'banana')
+```
+
+However, you can perform subtraction on dates and `POSIX*` objects to determine the difference between two points in time
+
+```{r}
+feb1 = as.Date("2025-02-01")
+feb2 = as.Date("2025-02-02")
+diff = feb2-feb1
+diff
+```
+
+This can be useful for a few things. For example, remember how we told you in Lab 5 that loops are slow?
+
+```{r}
+# Sys.time() prints the current time as a POSIXct object
+Sys.time()
+
+# Lets try using a loop to calculate mean temperature of every month and year of the Bedford Basin Time Series
+Bedford_ts$monthyear = substr(Bedford_ts$Date, 1, 7) # Get the first 7 characters of date
+head(unique(Bedford_ts$monthyear)) # We can loop through this
+
+# Initialize loop
+myear_mean = NULL
+
+# Start our timer
+start = Sys.time()
+
+# Loop through every unique month and year combination
+for(i in 1:length(unique(Bedford_ts$monthyear))){ 
+  
+  # Generate our indexer to select each individual monthyear
+  index = unique(Bedford_ts$monthyear)[i]
+  
+  # Index down to our monthyear of interest with our indexer
+  Bedford_myear = Bedford_ts[Bedford_ts$monthyear == index,]
+  
+  # Calculate the mean and concatenate it throughout our loop
+  myear_mean = c(myear_mean, mean(Bedford_myear$Temperature))
+  
+} # End loop
+
+# End our timer
+end = Sys.time()
+
+# How long did it take?
+loop_time = end-start
+loop_time
+
+```
+
+That might seem fast, but compare it to an apply function, or the `tidyverse` option
+
+```{r}
+# Start our timer
+start = Sys.time()
+
+# Use tapply to apply mean() to temperature for every unique monthyear combination
+myear_mean_apply = tapply(Bedford_ts$Temperature, Bedford_ts$monthyear, mean)
+
+# End our timer
+end = Sys.time()
+
+# How long did it take?
+apply_time = end-start
+apply_time
+
+# Start our timer
+start = Sys.time()
+
+# Use group_by and summarize to do the same thing
+myear_mean_tidy = Bedford_ts %>% 
+  group_by(monthyear) %>%
+  summarize(mean_temp = mean(Temperature), .groups = 'drop')
+
+
+# End our timer
+end = Sys.time()
+
+# How long did it take?
+tidy_time = end-start
+tidy_time
+
+
+# What's the difference?
+loop_time-apply_time
+loop_time-tidy_time
+
+# We can also convert time differences to numerics to run other mathematical operations on them
+paste('tapply was', loop_time/as.numeric(apply_time), 'times faster than the for loop')
+paste('tidyverse was', loop_time/as.numeric(tidy_time), 'times faster than the for loop')
+
+```
+
+Those turn into big differences when your code takes minutes to hours.
+
+Timing your code can be really helpful if you're running complicated models or analyses that take a long time, downloading data through R, or performing some other operation for which you would like to know how long it might take without having to pull out a stopwatch yourself.
+
+### Summarizing temporal data
+
+In the last example, we created a new column called monthyear to index our data by both month and year. This is a bit inconvenient, as both of those pieces of information are already contained within the date. In the `tidyverse` context, we can circumvent that step using the `summarize_by_time` function from the `timetk` package.
+
+```{r}
+# Summarize by time (date or time objects only)
+myear_mean_tk = Bedford_ts %>% 
+  summarize_by_time(mean_temp = mean(Temperature), # Summarize instructions
+                    .date_var = Date, # name of the column in which the date is contained 
+                    .by = 'month') # Unit of time to summarize across
+
+# This returns an identical result to the tidyverse option we tried previously
+all(myear_mean_tidy$mean_temp == myear_mean_tk$mean_temp)
+
+```
+
+Remember, coding is an exercise in creative problem solving. There are always multiple ways to get to the same answer. Some may be easier or faster, but all are equally correct. As you improve in coding, you may find certain methods work better for you. That's OK - everyone has their own coding style. If you look closely, you might be able to tell which of your instructors wrote which sections of this exercise!
+
+### Indexing by time
+
+We have covered how time information is formatted, how it can be modified or converted, visualized, and how processes can be timed in useful ways. It is also common to index data by some date(s).
+
+Let's index for all samples in 2016.
+
+```{r}
+str(Bedford_ts)
+
+x <- Bedford_ts[Bedford_ts$Year == 2016,]
+
+y <- Bedford_ts %>% 
+  filter(Year == 2016)
+
+z <- Bedford_ts %>% 
+  filter(Date > as.Date("2015-12-31") & 
+           Date < as.Date("2016-12-31"))
+
+# Euclid's revenge!
+all(x == z, y == z)
+ 
+```
+
+## References
+
+1.  Raes, E. J. et al. Seasonal patterns of microbial diversity across the world oceans. Limnol Oceanogr Letters lol2.10422 (2024) <doi:10.1002/lol2.10422>.
