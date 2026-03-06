@@ -1,0 +1,450 @@
+---
+title: 'Lab 7: Spatial data and mapping'
+subtitle: "February 26, 2025"
+author: "Liam MacNeil"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+  css: styles.css
+editor_options:
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Learning objectives
+
+After completing this lab, you will:
+
+1.  Understand how spatial information is encoded
+2.  Use the `tidyverse`, `sf`, and `terra` to handle spatial information
+3.  Understand how to visualize spatial data
+4.  Be able to map, transform, combine, and index spatial data
+
+```{r}
+packages <- c("tidyverse", "sf", "terra", "rnaturalearth", "sdmpredictors", "oce")
+
+
+# Install packages not yet installed
+installed_packages <- packages %in% installed.packages()
+
+if (any(installed_packages == FALSE)) {
+  install.packages(packages[!installed_packages])
+}
+
+# Packages loading
+
+invisible(lapply(packages, library, character.only = TRUE))
+```
+
+## Spatial information
+
+The first law of Geography holds that “everything is related to everything else, but near things are more related than distant things”^1^. In other words, dissimilarity often increases with distance. In many biological fields, we observe spatial differences between samples. Understanding how spatial information is represented and analyzed is crucial to apply in research or management science.
+
+## Spatial data
+
+Encoding spatial (geographic) information requires some positional records (latitude, longitude). Similar to our temporal data last week, spatial information come in a variety of formats, here they are longitude $\times$ latitude:
+
+-   Decimal degrees (DD) `44.6357, -63.5950` (Life Sciences Centre, Halifax)
+-   Degrees minutes (DM) `44°38'N, 63°35'W`
+-   Degrees minutes seconds (DMS) `44°38'8.52N', 63°35'44.90W'`
+
+\* Note that for decimal degrees, negative latitudes indicate the Southern Hemisphere, while negative longitudes indicate the Western Hemisphere. Otherwise, location is specified with direction (N-S-E-W).
+
+This is not a geography course, but it's important to recognize how to convert between formats. The Earth's spherical geometry (It's not a sphere, it's an oblate spheroid) lead to angular values where 1 degree ($D$) = 60 minutes. The total angle for decimal degrees showing a lat/lon position is given by:
+
+$$
+Angle = D + \frac{minutes}{60}+\frac{seconds}{3600}
+$$
+
+We can use this angular information to convert between e.g., Decimal Degrees and Degrees Minutes Seconds is as follows:
+
+44.6357 (DD)
+
+44 = Degrees
+
+44.6357 $-$ 44 $\times$ 60 = 38.142.
+
+So, 38 = Minutes
+
+38.142 $-$ 38 $\times$ 60 = 8.52.
+
+So, 8.52 seconds.
+
+**44.6357** (DD) = **44°38'8.52"N** (DMS)
+
+These angular measurements are highly precise, but the Earth is not a perfect sphere, so some sophisticated geomatics are involved in modern Geographic Information Systems (GIS)^2^.
+
+```{r echo=FALSE, fig.align="center", fig.height=10, include=TRUE, out.height="40%", out.width="100%"}
+knitr::include_graphics(path.expand("../Figures/Geoid.svg"))
+```
+
+Geographic information is ubiquitous, but remember that these are typically an average or a snapshot in time. Spatio-temporal data are becoming more common and link important concepts we learned last week when handling temporal data (e.g., time stamp formatting, time zones, time math).
+
+While positional information comes in a variety of formats, the resulting spatial data fall into two primary data types: (1) rasters and (2) vectors. Rasters encode spatial data as a series of grid cells filled with continuous values (you can have categorical rasters too). For data without "hard" boundaries (e.g., ocean temperatures, satellite imagery), rasters are an excellent choice. Raster formats are commonly used when interpolating values between points to represent a continuous surface of values. Vector data by contrast, can represent discrete points, lines, or polygons. These data have hard boundaries (e.g., point observations, sampling tracks, roads, management areas). We will use raster, point, and polygon data today.
+
+### Rasters
+
+A simple raster is a matrix of cells (or pixels, like images) forming a grid where each cell contains a value representing information. The spatial distribution of the cell values underlay raster data. Often raster datasets contain many layers, each displaying different information^3^.
+
+```{r echo=FALSE, fig.align="center", fig.height=10, include=TRUE, out.height="60%", out.width="100%"}
+knitr::include_graphics(path.expand("../Figures/raster.png"))
+```
+
+The area (or surface) represented by each cell consists of the same width and height and is an equal portion of the entire surface represented by the raster. For example, a raster representing elevation covering 100 square kilometers (100km^2^), if there were 100 cells in this raster, each cell would represent 1 km^2^ (1 km x 1 km). As you can see in the figure above, scale (or resolution) matters.
+
+Spatial rasters typically come in one of two formats:
+
+1.  Network Common Data Form (NetCDF) files come with a .nc file extension. They are often used to store multi-dimensional arrays, meaning NetCDF spatial data often contain multiple layers, and may even include time and/or depth/elevation coordinates. These will all be loaded in as part of a single object with multiple layers in R. More on raster layers later.
+2.  We'll be using GeoTIFF files (.tif extension) in this lab. They are image files containing additional metadata, which R will load in along with the data. They may appear and be opened as black and white images on your computer - you can see this if you look in the Lab7 data folder.
+
+The `terra` package can load in both of these data types using the `rast()` function. Let's use the `terra` package to read in bathymetric raster data for the NW. Atlantic.
+
+```{r}
+bathy <- rast("../Data/NW_Atlantic.tif")
+
+# base plot
+plot(bathy)
+
+# print the raster info
+bathy
+
+# extract the spatial extent (in degrees)
+ext(bathy)
+
+# Get spatial resolution (in degrees)
+res(bathy)
+
+# summarize the layer (elevation)
+summary(bathy)
+
+# plot the distribution of that layers values
+hist(bathy)
+```
+
+#### Transforming raster data
+
+There is great flexibility in rasters. Given that it represents a continuous surface, we can discretize, (dis)aggregate, crop and curve grids, and we can convert it to a data frame. We will crop and curve later.
+
+We already stated that rasters can be discretized into categories.
+
+```{r}
+# discretize (only for plotting)
+plot(bathy, 
+     breaks = c(-1000, -500, 0, 500, 1000), 
+     col = hcl.colors(10))
+```
+
+Sometimes rasters are more precise than we need to quickly plot or analyze. We can aggregate (fewer cells) to reduce the spatial resolution.
+
+```{r}
+?aggregate
+```
+
+We can convert a raster to a data frame and preserve positional information.
+
+```{r}
+terra::as.data.frame(bathy, xy = TRUE, na.rm = FALSE)
+```
+
+#### Stacking raster data
+
+Rasters are packed with information. So far we have only showed one layer (elevation). We can also pack in stacks\* of raster information. Here are some layers from `sdmpredictors`^4^, let's load terrestrial rasters for annual mean surface temperature (`WC_bio1`), maximum temperatures (`WC_bio5`), minimum temperatures (`WC_bio6`), and precipitation seasonality (`WC_bio15`).
+
+**\* I am calling these "stacks", which is the old vocabulary used in the original** `raster` **package.** `terra` **has largely replaced this package naming any single or stacked raster a** `SpatRaster` **(Spatial raster), but the vocabulary is still useful. In `terra`** **language, the individual rasters within a raster "stack" are referred to as "layers".**
+
+```{r}
+rast_stack <- rast(load_layers(c("WC_bio1", "WC_bio5", "WC_bio6", "WC_bio15")))
+
+rast_stack
+
+# We can use this to modify layer names too.
+names(rast_stack)
+
+plot(rast_stack, 
+     col = terrain.colors(10),
+     main = c("mean temp", 
+              "max temp", 
+              "min temp", 
+              "seasonal rain"))
+```
+
+We can run operations on these raster stacks (pixel-by-pixel), calculating between layers the mean, min, standard deviation, for example. This might be especially useful if you want to summarize variation through time. Let's simply calculate the difference between the maximum and minimum temperature (`WC_bio5`$-$`WC_bio6`).
+
+```{r}
+temp_diff <- rast_stack$WC_bio5-rast_stack$WC_bio6
+
+#OR
+
+temp_diff <- rast_stack["WC_bio5"]-rast_stack["WC_bio6"]
+
+#This produces the annual temperature range: There are significant temperature ranges at northern continental latitudes. 
+plot(temp_diff)
+
+# We can add this new layer to our stack
+new_rast <- c(rast_stack, temp_diff)
+
+plot(new_rast)
+```
+
+While rasters and stacks of rasters are extremely useful, sometimes we just need a data frame. A useful conversion for rasters is to a `sf` object, which plays perfectly well with the `tidyverse`. We will return to these.
+
+```{r}
+?st_as_sf 
+
+# We can also do this for stacks, but takes longer
+rast_pts <- as.data.frame(bathy, xy = TRUE, na.rm = FALSE) %>% 
+  st_as_sf(coords = c("x", "y"))
+```
+
+### Vectors
+
+Many finer spatial details are encoded as vector data. These are not continuous data, but location information for points, lines, or polygons^5^. These can be roads, districts, field observations, isobaths, watersheds, coastlines, protected areas, etc.
+
+Though we do not do so in this lab, spatial vectors can be loaded into R using the `terra` `vect()` function. This is most often applied to load in spatial polygons through the use of shapefiles, which is a unique storage format specifically designed to save and load spatial vectors for Geographic Information Systems (GIS), such as arcGIS, QGIS, and of course, R itself when paired with spatial packages such as `terra`.
+
+```{r echo=FALSE, fig.align="center", include=TRUE, out.height="40%", out.width="50%"}
+knitr::include_graphics(path.expand("../Figures/examplevector-1.png"))
+```
+
+#### Polygons
+
+Nowadays (2026), the `sf` approach for handling spatial vector data as data frames has become very powerful. The name `sf` derives from the *simple features* functionality of ESRI ArcGIS software. Here are the Marine Ecoregions of the World^6^ which subdivide unique ecosystems across continental shelves.
+
+```{r}
+# We're starting without projections
+sf_use_s2(FALSE)
+
+# Load polygon data
+Ecoregions_shelf_seas <- read_sf("../Data/MEOW/", 
+                                 layer = "meow_ecos")
+
+class(Ecoregions_shelf_seas)
+
+str(Ecoregions_shelf_seas)
+
+# Check the spatial information
+Ecoregions_shelf_seas$geometry
+
+unique(Ecoregions_shelf_seas$ECOREGION)
+
+# preview plot
+Ecoregions_shelf_seas %>% 
+  ggplot() +
+  geom_sf()
+
+?geom_sf
+
+```
+
+## Task 1:
+
+A)  Using the `bathy` raster and the Ecoregions file, crop the raster (`?crop`) to the extent of the filtered polygon given below. Name this new raster `Scotia`.
+
+B)  plot this new raster, apply a nice color palette (check `oce` package), and change the depth breaks.
+
+```{r}
+ScotianShelf <- Ecoregions_shelf_seas %>% 
+  filter(ECOREGION == "Scotian Shelf")
+
+Scotia <- crop(bathy, ScotianShelf)
+
+plot(Scotia, 
+     col = oce.colorsGebco(30)[1:20],
+     breaks = seq(-5000, 0, 500))
+
+```
+
+The polygon extents (xmin, xmax, ymin, ymax) are taken from `crop`. There is an extra `mask` step to exclude values outside the exact domain of the polygon (not just the bounding box extent). This sets all values outside of the polygon to NAs.
+
+```{r}
+
+Scotia <- mask(crop(bathy, ScotianShelf), ScotianShelf)
+
+plot(Scotia, 
+     col = oce.colorsGebco(30)[1:20])
+
+# Instead of using these breaks to define the coastline, we can also index all values below zero
+```
+
+We can treat `sf` data frames like any other, filtering rows, subsetting columns, summarizing values, or creating new columns. Let's load other vector data (coastlines) from `rnaturalearth` to combine with ecoregions and give some context.
+
+```{r}
+
+# Let's filter the Ecoregions for the NW. Atlantic Ocean
+Ecoregions_shelf_seas_NW <- Ecoregions_shelf_seas %>% 
+  filter(ECOREGION == "Gulf of Maine/Bay of Fundy" | 
+           ECOREGION == "Scotian Shelf" |
+           ECOREGION == "Gulf of St. Lawrence - Eastern Scotian Shelf" |
+           ECOREGION == "Southern Grand Banks - South Newfoundland"
+           )
+
+# Coastline data 
+coastline <- ne_countries(scale = "Medium") 
+
+# Similar to `crop` in terra, but distinct from each other
+?st_intersection
+?st_crop
+# Similar to `ext` in terra
+?st_bbox
+
+# Let's crop the coastline to the rectangular extent (bounding box) of the Ecoregions
+# using the same pipe operator
+coastline_NW <- coastline %>% 
+  st_crop(st_bbox(Ecoregions_shelf_seas_NW))
+
+
+# Let's combine these into a more refined ggplot
+# We will first present ecoregions so they don't overlay coastlines
+ggplot(Ecoregions_shelf_seas_NW)+
+  # We're calling the sf layer for data above
+  geom_sf(aes(fill = ECOREGION))+
+  # The extra geom layer overlaying coastlines
+  geom_sf(data = coastline_NW, fill = "grey80", linewidth = 0.1)+
+  theme_minimal(10)
+```
+
+#### Points
+
+These rectangular crops are great. But they are imprecise. Points are the most precise way to sharply outline the spatial intersection you want. Let's begin with the Groundfish surveys we introduced several weeks ago.
+
+```{r}
+trawls <- read.csv("../Data/Groundfish_surveys.csv")
+
+# Converting an ordinary data frame to an sf object with a geometry column
+trawls_sf <- st_as_sf(trawls, 
+                      # this defines the coordiates to create geometry column
+                      coords = c("longitude", "latitude"),
+                      # We will come to these (coordinate reference systems)
+                      crs = st_crs("EPSG:4326"))
+
+trawls_sf$geometry
+
+```
+
+## Task 2:
+
+A)  Use the `ggplot` and `sf` grammar to explore the groundfish survey points with the other shapefiles.
+
+```{r}
+# YOUR CODE HERE
+ggplot(Ecoregions_shelf_seas_NW)+
+  # We're calling the sf layer for data above
+  geom_sf(aes(fill = ECOREGION), alpha = 0.25)+
+  geom_sf(data = trawls_sf, color = "black", alpha = 0.1, size = 0.1)+
+  # The extra geom layer overlaying coastlines
+  geom_sf(data = coastline_NW, fill = "grey80", linewidth = 0.1)+
+  theme_minimal(10)
+
+```
+
+Let's use the intersection of polygons and points to crop and filter.
+
+```{r}
+# Using the points to index the polygons
+Ecoregions_NW_pts <- Ecoregions_shelf_seas_NW[lengths(st_intersects(Ecoregions_shelf_seas_NW, trawls_sf)) > 0, ]
+
+ggplot(Ecoregions_NW_pts)+
+  # We're calling the sf layer for data above
+  geom_sf(aes(fill = ECOREGION), alpha = 0.25)+
+  geom_sf(data = trawls_sf, color = "black", alpha = 0.1, size = 0.1)+
+  # The extra geom layer overlaying coastlines
+  geom_sf(data = coastline_NW, fill = "grey80", linewidth = 0.1)+
+  theme_minimal(10)
+
+# For spatial points, the indexing way
+trawls_sf_pts <- trawls_sf[lengths(st_intersects(trawls_sf, Ecoregions_NW_pts)) > 0, ]
+
+# The dplyr way
+trawls_sf_pts <- st_filter(trawls_sf, Ecoregions_NW_pts, .predicate = st_intersects)
+
+?st_intersects
+
+ggplot(Ecoregions_NW_pts)+
+  # We're calling the sf layer for data above
+  geom_sf(aes(fill = ECOREGION), alpha = 0.25)+
+  geom_sf(data = trawls_sf_pts, color = "black", alpha = 0.1, size = 0.1)+
+  # The extra geom layer overlaying coastlines
+  geom_sf(data = coastline_NW, fill = "grey80", linewidth = 0.1)+
+  theme_minimal(10)
+```
+
+#### Coordinate Reference Systems (CRS)
+
+For any spatial (raster or vector) data, when combining to plot, modify, or model, they need a common coordinate reference system (CRS). These are crucial. The CRS defines our model of the Earth with a datum to estimate coordinate positions. The most common and what we've used so far is WGS84 (World Geodesic System 1984)^7^.
+
+```{r echo=FALSE, fig.align="center", include=TRUE, out.height="40%", out.width="50%"}
+knitr::include_graphics(path.expand("../Figures/WGS84.png"))
+```
+
+For mapping, these are great! But distances are often wrong. It idealizes spatial differences as equal-area, think: the Earth is curved but latitude lines on the north pole and equator appear identical in length.
+
+The main difference is that **geographic** coordinates (unprojected) present angular positions (lat, lon) and preserve the overall shape of the Earth, **projected** coordinates flatten and translate this 3-D surface into a 2-D plane where we can measure position, distance, area in meters with high precision.
+
+Here is the an WGS 1984 Azimuthal Equidistant projection where distances are correct when measured from the center of the projection^7^.
+
+```{r echo=FALSE, fig.align="center", include=TRUE, out.height="40%", out.width="50%"}
+knitr::include_graphics(path.expand("../Figures/WGS84_projection.png"))
+```
+
+**There is no universal projection fit for all regions**. There are databases with different EPSG codes^8^ (European Petroleum Survey Group) to choose different projections depending on your region of interest.
+
+#### Converting CRS
+
+Let's experiment with our raster data.
+
+```{r}
+crs(bathy)
+
+# Here is a useful projection for the NW Atlantic
+bathy_reproj <- project(bathy, "EPSG:2954")
+  
+# Check the units!
+ext(bathy_reproj)
+
+# Can two rasters with different CRS be stacked?
+c(bathy_reproj, bathy)
+```
+
+Now let's work with `sf` data.
+
+```{r}
+Ecoregions_NW_reproj <- Ecoregions_shelf_seas_NW %>% 
+  st_transform("EPSG:2954")
+
+# EPSG:2954
+ggplot(Ecoregions_NW_reproj, aes(fill = ECOREGION))+
+  geom_sf()
+
+# Compare to WGS84
+ggplot(Ecoregions_shelf_seas_NW, aes(fill = ECOREGION))+
+  geom_sf()
+
+# Notice the difference?
+```
+
+## Task 3:
+
+A)  Convert the polygon files (ecoregions, coastline) to the `EPSG:2954` CRS.
+
+B)  Plot these using `ggplot` in an elegant way, filling or coloring attributes of your choice.
+
+```{r}
+# YOUR CODE HERE
+```
+
+We will cover different grid geometries, spatial operations (distance, area, etc.), and spatial interpolation next week!
+
+## References
+
+1.  Tobler, W. R. 1970. A computer movie simulating urban growth in the Detroit region. Economic Geography. 46: 234–240.
+2.  The reference framework for first mile farm data collection, storage and exchange. (2023). Spatial data acquisition and standards.
+3.  <https://github.com/Diego-Ibarra/biol3782>
+4.  sdmpredictors: a compilation of species distribution modelling predictors data (2023). <https://github.com/lifewatch/sdmpredictors>.
+5.  Spatial Statistics for Data Science: Theory and Practice with R (2024) Spatial data in R, <https://www.paulamoraga.com/book-spatial/index.html>
+6.  Spalding, M. D., et al. (2007). Marine Ecoregions of the World: A Bioregionalization of Coastal and Shelf Areas. BioScience, 57(7), 573–583. <https://doi.org/10.1641/B570707>
+7.  ESRI (2018). Why are my map, distance and area measurements wrong when using WGS 1984 Web Mercator?. <https://support.esri.com>
+8.  <https://epsg.io/#google_vignette>
